@@ -311,7 +311,7 @@ function HeroSection() {
         <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
           <span className="text-gradient">Boost your </span>
           <br />
-          <span className="text-foreground">Production Line Efficiency up to 10%</span>
+          <span className="text-foreground">Production Line Efficiency <br />up to 10%</span>
         </h1>
         <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
           Calculate the return on investment for KingsLakeBlue's AI-powered Line Balancing solution. See how much time and money you can save across Capacity Planning, Time Study Management, Absentee Balancing, and Automated Reporting.
