@@ -10,7 +10,6 @@ import {
   DollarSign,
   ArrowRight,
   CheckCircle2,
-  Waves,
   Briefcase,
   LayoutDashboard,
   PieChart,
@@ -1166,14 +1165,17 @@ function Footer() {
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-kingslake rounded-lg flex items-center justify-center">
-              <Waves className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <span className="text-xl font-bold">KingsLakeBlue</span>
-              <p className="text-xs text-kingslake-300">Intelligent Production Solutions</p>
+            <div className="relative rounded-lg p-1 filter drop-shadow-[0_0_18px_rgba(255,255,255,0.85)]">
+              <img
+                src="/logo.png"
+                alt="KingsLakeBlue logo"
+                width={2000}
+                height={600}
+                className="h-10 w-auto object-contain rounded-md"
+              />
             </div>
           </div>
+
           <div className="flex items-center gap-6 text-sm text-kingslake-300">
             <a href="#" className="hover:text-white transition-colors">About</a>
             <a href="#" className="hover:text-white transition-colors">Features</a>
