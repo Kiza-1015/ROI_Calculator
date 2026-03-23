@@ -284,16 +284,13 @@ function formatNumber(value: number, decimals: number = 1): string {
 function Logo() {
   return (
     <div className="flex items-center gap-3">
-      <div className="relative w-10 h-10">
-        <div className="absolute inset-0 bg-gradient-kingslake rounded-lg transform rotate-3"></div>
-        <div className="absolute inset-0 bg-gradient-kingslake rounded-lg flex items-center justify-center">
-          <Waves className="w-6 h-6 text-white" />
-        </div>
-      </div>
-      <div className="flex flex-col">
-        <span className="text-xl font-bold text-gradient">KingsLakeBlue</span>
-        <span className="text-xs text-muted-foreground -mt-1">Intelligent Solutions</span>
-      </div>
+      <img
+        src="/logo.png"
+        alt="KingsLakeBlue logo"
+        width={2000}
+        height={600}
+        className="h-10 w-auto rounded-lg"
+      />
     </div>
   )
 }
