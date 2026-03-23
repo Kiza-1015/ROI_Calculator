@@ -17,7 +17,8 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowDownRight,
-  Globe
+  Globe,
+  List
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -51,9 +52,6 @@ const CURRENCIES: CurrencyConfig[] = [
 const CurrencyContext = createContext<CurrencyConfig>(CURRENCIES[0])
 const useCurrency = () => useContext(CurrencyContext)
 
-// LKR base rate (params are always stored in LKR internally)
-const LKR_TO_USD = 0.0033   // kept for default param initialisation
-
 interface ROIParams {
   // General Parameters
   workingDaysPerWeek: number
@@ -61,17 +59,18 @@ interface ROIParams {
   numberOfIEOfficers: number
   workingHoursPerWeekIE: number
   avgSalaryOfficer: number
+  employeesPerLine: number
+  employeeWorkingHours: number
+  employeeAvgSalary: number
   
   // Study App Parameters
   studiesNoteDownTime: number
   timeToEnterStudyTimes: number
   
   // Absentee Balancing Parameters
+  absenteeLinePercentage: number
   replaceEmployeesFindingTime: number
   rebalanceTime: number
-  employeesPerLine: number
-  employeeWorkingHours: number
-  employeeAvgSalary: number
   
   // Capacity Balancing Parameters
   studyDataAnalysisTime: number
@@ -103,6 +102,7 @@ interface ROICalculations {
   studyAppTotalBenefit: number
   
   // Absentee Balancing
+  absenteeAffectedLines: number
   absenteeRebalancingTimeSaving: number
   absenteeTotalTimeSavingPerLine: number
   absenteeTotalTimePerEmployee: number
@@ -144,17 +144,18 @@ const defaultParams: ROIParams = {
   numberOfIEOfficers: 5,
   workingHoursPerWeekIE: 45,
   avgSalaryOfficer: 75000,       // LKR — converted to display currency at render time
+  employeesPerLine: 10,
+  employeeWorkingHours: 50,
+  employeeAvgSalary: 50000,      // LKR
   
   // Study App
   studiesNoteDownTime: 5,
   timeToEnterStudyTimes: 15,
   
   // Absentee Balancing
+  absenteeLinePercentage: 10,
   replaceEmployeesFindingTime: 10,
   rebalanceTime: 15,
-  employeesPerLine: 10,
-  employeeWorkingHours: 50,
-  employeeAvgSalary: 50000,      // LKR
 
   // Capacity Balancing
   studyDataAnalysisTime: 15,
@@ -186,19 +187,20 @@ function calculateROI(params: ROIParams): ROICalculations {
   const studyAppTotalBenefit = (studyAppTotalTimeSavingHoursPerMonth / studyAppTotalWorkingHoursAllOfficers) * studyAppTotalCostAllOfficers
   
   // Absentee Balancing Calculations
+  const absenteeAffectedLines = params.numberOfLines * (params.absenteeLinePercentage / 100)
   const absenteeRebalancingTimeSaving = params.rebalanceTime - 5 // Assuming 5 min with app
   const absenteeTotalTimeSavingPerLine = params.replaceEmployeesFindingTime + absenteeRebalancingTimeSaving
-  const absenteeTotalTimePerEmployee = absenteeTotalTimeSavingPerLine + (params.studyDataAnalysisTime / params.employeesPerLine) // per employee share
+  const absenteeTotalTimePerEmployee = absenteeTotalTimeSavingPerLine + (params.studyDataAnalysisTime / params.employeesPerLine)
   const absenteeTotalTimePerLinePerDay = absenteeTotalTimeSavingPerLine * params.employeesPerLine
-  const absenteeTotalTimePerWeek = absenteeTotalTimePerLinePerDay * params.workingDaysPerWeek
+  const absenteeTotalTimePerWeek = absenteeTotalTimePerLinePerDay * params.workingDaysPerWeek * absenteeAffectedLines
   const absenteeTotalTimePerMonth = (absenteeTotalTimePerWeek * 4) / 60
   const absenteeTotalWorkingHoursPerLine = params.employeeWorkingHours * params.employeesPerLine * 4
-  const absenteeSavingTimePercentage = (absenteeTotalTimePerMonth / absenteeTotalWorkingHoursPerLine) * 100
+  const absenteeSavingTimePercentage = (absenteeTotalTimePerMonth / (absenteeTotalWorkingHoursPerLine * absenteeAffectedLines)) * 100
   const absenteeTotalLaborCostPerLine = params.employeeAvgSalary * params.employeesPerLine
-  const absenteeIESavingTimePerMonth = (params.studyDataAnalysisTime / 60) * params.capacityBalancingTimesPerMonth * 4 // T_analysis × Cap_freq × 4 weeks
+  const absenteeIESavingTimePerMonth = (params.studyDataAnalysisTime / 60) * params.capacityBalancingTimesPerMonth * 4
   const absenteeIESavingPercentage = (absenteeIESavingTimePerMonth / studyAppTotalWorkingHoursPerOfficer) * 100
   const absenteeIESavingCost = (absenteeIESavingTimePerMonth / studyAppTotalWorkingHoursPerOfficer) * params.avgSalaryOfficer
-  const absenteeEmployeeSavingCost = (absenteeTotalTimePerMonth / absenteeTotalWorkingHoursPerLine) * absenteeTotalLaborCostPerLine
+  const absenteeEmployeeSavingCost = (absenteeTotalTimePerMonth / (absenteeTotalWorkingHoursPerLine * absenteeAffectedLines)) * absenteeTotalLaborCostPerLine * absenteeAffectedLines
   const absenteeTotalBenefit = absenteeIESavingCost + absenteeEmployeeSavingCost
   
   // Capacity Balancing Calculations
@@ -217,7 +219,7 @@ function calculateROI(params: ROIParams): ROICalculations {
   // Total Benefits and ROI
   const totalBenefits = studyAppTotalBenefit + absenteeTotalBenefit + capacityTotalBenefit + reportsTotalBenefit
   const roi = ((totalBenefits - params.costOfInvestmentPerMonth) / params.costOfInvestmentPerMonth) * 100
-  const paybackPeriod = params.costOfInvestmentPerMonth / totalBenefits // in months, matching Excel
+  const paybackPeriod = params.costOfInvestmentPerMonth / totalBenefits
   
   return {
     studyAppTimeSavingPerLine,
@@ -232,6 +234,7 @@ function calculateROI(params: ROIParams): ROICalculations {
     studyAppTotalCostPerOfficer,
     studyAppTotalCostAllOfficers,
     studyAppTotalBenefit,
+    absenteeAffectedLines,
     absenteeRebalancingTimeSaving,
     absenteeTotalTimeSavingPerLine,
     absenteeTotalTimePerEmployee,
@@ -270,7 +273,6 @@ function formatCurrency(value: number, currency: CurrencyConfig): string {
   }).format(value)
 }
 
-// Convert a LKR value to the selected display currency
 function lkr(value: number, currency: CurrencyConfig): number {
   return value * currency.rateFromLKR
 }
@@ -299,29 +301,24 @@ function Logo() {
 function HeroSection() {
   return (
     <section className="relative min-h-[60vh] flex items-center justify-center overflow-hidden">
-      {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-kingslake-50 via-white to-kingslake-100"></div>
       <div className="absolute inset-0 opacity-30">
         <div className="absolute top-20 left-10 w-72 h-72 bg-kingslake-300 rounded-full mix-blend-multiply filter blur-3xl animate-float"></div>
         <div className="absolute bottom-20 right-10 w-96 h-96 bg-kingslake-400 rounded-full mix-blend-multiply filter blur-3xl animate-float" style={{ animationDelay: '1s' }}></div>
         <div className="absolute top-1/2 left-1/2 w-80 h-80 bg-kingslake-200 rounded-full mix-blend-multiply filter blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
       </div>
-      
-      {/* Content */}
       <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
         <Badge className="mb-4 bg-kingslake-100 text-kingslake-700 hover:bg-kingslake-200 border-kingslake-200">
           <Calculator className="w-3 h-3 mr-1" />
           ROI Analysis Tool
         </Badge>
         <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
-          <span className="text-gradient">Transform Your</span>
+          <span className="text-gradient">Boost your </span>
           <br />
-          <span className="text-foreground">Production Efficiency</span>
+          <span className="text-foreground">Production Line Efficiency up to 10%</span>
         </h1>
         <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-          Calculate the return on investment for KingsLakeBlue's intelligent production management solutions. 
-          See how much time and money you can save across Study Management, Absentee Balancing, 
-          Capacity Planning, and Automated Reporting.
+          Calculate the return on investment for KingsLakeBlue's AI-powered Line Balancing solution. See how much time and money you can save across Capacity Planning, Time Study Management, Absentee Balancing, and Automated Reporting.
         </p>
         <div className="flex flex-wrap justify-center gap-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -370,7 +367,7 @@ function InputField({
       <div className="relative">
         <Input
           type={type}
-          value={type === 'number' ? value : value}
+          value={value}
           onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
           min={min}
           step={step}
@@ -409,12 +406,12 @@ function ResultCard({
   }
   
   return (
-    <Card className="card-hover overflow-hidden">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <p className="text-sm text-muted-foreground mb-1">{title}</p>
-            <p className="text-2xl font-bold text-foreground">{value}</p>
+    <Card className="card-hover">
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground mb-1">{title}</p>
+            <p className="text-base font-bold text-foreground leading-snug">{value}</p>
             {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
             {trend && (
               <div className="flex items-center gap-1 mt-2">
@@ -423,8 +420,8 @@ function ResultCard({
               </div>
             )}
           </div>
-          <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${colorClasses[color]} flex items-center justify-center shadow-lg`}>
-            <Icon className="w-5 h-5 text-white" />
+          <div className={`w-9 h-9 shrink-0 rounded-lg bg-gradient-to-br ${colorClasses[color]} flex items-center justify-center shadow-md`}>
+            <Icon className="w-4 h-4 text-white" />
           </div>
         </div>
       </CardContent>
@@ -432,7 +429,6 @@ function ResultCard({
   )
 }
 
-// ── Intermediate step row ──────────────────────────────────────────────────
 function CalcStep({ label, value, unit = '', formula, isFinal = false, indent = false, isCurrency = false }: {
   label: string
   value: number
@@ -465,7 +461,6 @@ function CalcStep({ label, value, unit = '', formula, isFinal = false, indent = 
   )
 }
 
-// ── Expandable module card ─────────────────────────────────────────────────
 function ModuleCard({ title, icon: Icon, gradientFrom, gradientTo, accentColor, benefit, children }: {
   title: string
   icon: React.ElementType
@@ -479,11 +474,7 @@ function ModuleCard({ title, icon: Icon, gradientFrom, gradientTo, accentColor, 
   const currency = useCurrency()
   return (
     <Card className="card-hover overflow-hidden">
-      {/* Header — always visible */}
-      <div
-        className="cursor-pointer select-none"
-        onClick={() => setExpanded(v => !v)}
-      >
+      <div className="cursor-pointer select-none" onClick={() => setExpanded(v => !v)}>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
@@ -497,9 +488,8 @@ function ModuleCard({ title, icon: Icon, gradientFrom, gradientTo, accentColor, 
             </div>
           </div>
         </CardHeader>
-        {/* Summary row — always visible */}
         <CardContent className="pt-0 pb-3">
-          <div className={`flex items-center justify-between rounded-lg px-3 py-2 bg-emerald-50 border border-emerald-100`}>
+          <div className="flex items-center justify-between rounded-lg px-3 py-2 bg-emerald-50 border border-emerald-100">
             <span className="text-sm text-emerald-700 font-medium">Monthly Benefit</span>
             <span className="text-base font-bold text-emerald-700">{formatCurrency(lkr(benefit, currency), currency)}</span>
           </div>
@@ -508,8 +498,6 @@ function ModuleCard({ title, icon: Icon, gradientFrom, gradientTo, accentColor, 
           )}
         </CardContent>
       </div>
-
-      {/* Expanded steps */}
       {expanded && (
         <CardContent className="pt-0 pb-4">
           <div className="rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-1">
@@ -521,109 +509,72 @@ function ModuleCard({ title, icon: Icon, gradientFrom, gradientTo, accentColor, 
   )
 }
 
-// ── All 4 module cards ─────────────────────────────────────────────────────
-function ModuleDetailCards({ calculations: c }: { calculations: ROICalculations }) {
+function ModuleDetailCards({ calculations: c, params }: { calculations: ROICalculations; params: ROIParams }) {
   return (
     <div className="grid md:grid-cols-2 gap-6">
-
-      {/* 1. Study App */}
       <ModuleCard title="Study App" icon={FileText}
         gradientFrom="from-kingslake-500" gradientTo="to-kingslake-400"
         accentColor="text-kingslake-500" benefit={c.studyAppTotalBenefit}>
-        <CalcStep label="Time saving per line" value={c.studyAppTimeSavingPerLine} unit="min"
-          formula="S_note + S_entry" />
-        <CalcStep label="Lines per officer" value={c.studyAppLinesPerOfficer} unit="lines"
-          formula="N_lines ÷ N_officers" indent />
-        <CalcStep label="Time saving per officer" value={c.studyAppTimeSavingPerOfficer} unit="min"
-          formula="saving/line × lines/officer" indent />
-        <CalcStep label="Total saving — all officers/day" value={c.studyAppTotalTimeSavingPerDay} unit="min/day"
-          formula="per officer × N_officers" />
-        <CalcStep label="Total saving/month" value={c.studyAppTotalTimeSavingPerMonth} unit="min"
-          formula="per day × W_days × 4" indent />
-        <CalcStep label="Total saving/month" value={c.studyAppTotalTimeSavingHoursPerMonth} unit="hrs"
-          formula="÷ 60" indent />
-        <CalcStep label="Working hrs/officer/month" value={c.studyAppTotalWorkingHoursPerOfficer} unit="hrs"
-          formula="W_hrs_officer × 4" />
-        <CalcStep label="Working hrs — all officers/month" value={c.studyAppTotalWorkingHoursAllOfficers} unit="hrs"
-          formula="per officer × N_officers" indent />
-        <CalcStep label="Saved time %" value={c.studyAppSavedTimePercentage} unit="%"
-          formula="(saving hrs ÷ total working hrs) × 100" />
-        <CalcStep label="Cost per officer (3-month basis)" value={c.studyAppTotalCostPerOfficer}
-          formula="Sal_officer × 3" isCurrency />
-        <CalcStep label="Total cost — all officers" value={c.studyAppTotalCostAllOfficers}
-          formula="× N_officers" indent isCurrency />
-        <CalcStep label="Monthly Benefit" value={c.studyAppTotalBenefit}
-          formula="total cost × saved time %" isFinal isCurrency />
+        <CalcStep label="Time saving per line" value={c.studyAppTimeSavingPerLine} unit="min" formula="S_note + S_entry" />
+        <CalcStep label="Lines per officer" value={c.studyAppLinesPerOfficer} unit="lines" formula="N_lines ÷ N_officers" indent />
+        <CalcStep label="Time saving per officer" value={c.studyAppTimeSavingPerOfficer} unit="min" formula="saving/line × lines/officer" indent />
+        <CalcStep label="Total saving — all officers/day" value={c.studyAppTotalTimeSavingPerDay} unit="min/day" formula="per officer × N_officers" />
+        <CalcStep label="Total saving/month" value={c.studyAppTotalTimeSavingPerMonth} unit="min" formula="per day × W_days × 4" indent />
+        <CalcStep label="Total saving/month" value={c.studyAppTotalTimeSavingHoursPerMonth} unit="hrs" formula="÷ 60" indent />
+        <CalcStep label="Working hrs/officer/month" value={c.studyAppTotalWorkingHoursPerOfficer} unit="hrs" formula="W_hrs_officer × 4" />
+        <CalcStep label="Working hrs — all officers/month" value={c.studyAppTotalWorkingHoursAllOfficers} unit="hrs" formula="per officer × N_officers" indent />
+        <CalcStep label="Saved time %" value={c.studyAppSavedTimePercentage} unit="%" formula="(saving hrs ÷ total working hrs) × 100" />
+        <CalcStep label="Cost per officer (3-month basis)" value={c.studyAppTotalCostPerOfficer} formula="Sal_officer × 3" isCurrency />
+        <CalcStep label="Total cost — all officers" value={c.studyAppTotalCostAllOfficers} formula="× N_officers" indent isCurrency />
+        <CalcStep label="Monthly Benefit" value={c.studyAppTotalBenefit} formula="total cost × saved time %" isFinal isCurrency />
       </ModuleCard>
 
-      {/* 2. Absentee Balancing */}
       <ModuleCard title="Absentee Balancing" icon={Users}
         gradientFrom="from-violet-500" gradientTo="to-violet-400"
         accentColor="text-violet-500" benefit={c.absenteeTotalBenefit}>
-        <CalcStep label="Rebalancing time saving" value={c.absenteeRebalancingTimeSaving} unit="min"
-          formula="T_rebalance − 5 (app saves 5 min)" />
-        <CalcStep label="Total time saving per line" value={c.absenteeTotalTimeSavingPerLine} unit="min"
-          formula="T_find + rebalancing saving" indent />
-        <CalcStep label="Total saving per line/day" value={c.absenteeTotalTimePerLinePerDay} unit="min/day"
-          formula="saving/line × Emp_line" />
-        <CalcStep label="Total saving per week" value={c.absenteeTotalTimePerWeek} unit="min/week"
-          formula="per line/day × W_days" indent />
-        <CalcStep label="Total saving per month" value={c.absenteeTotalTimePerMonth} unit="hrs"
-          formula="(per week × 4) ÷ 60" indent />
-        <CalcStep label="Total working hrs per line" value={c.absenteeTotalWorkingHoursPerLine} unit="hrs"
-          formula="W_hrs_emp × Emp_line × 4" />
-        <CalcStep label="Employee saving time %" value={c.absenteeSavingTimePercentage} unit="%"
-          formula="(saving hrs ÷ working hrs) × 100" />
-        <CalcStep label="Labor cost per line" value={c.absenteeTotalLaborCostPerLine}
-          formula="Sal_emp × Emp_line" isCurrency />
-        <CalcStep label="Employee saving cost" value={c.absenteeEmployeeSavingCost}
-          formula="labor cost × saving %" indent isCurrency />
-        <CalcStep label="IE saving time/month" value={c.absenteeIESavingTimePerMonth} unit="hrs"
-          formula="(T_analysis ÷ 60) × Cap_freq × 4" />
-        <CalcStep label="IE saving %" value={c.absenteeIESavingPercentage} unit="%"
-          formula="(IE saving hrs ÷ W_hrs_officer×4) × 100" indent />
-        <CalcStep label="IE saving cost" value={c.absenteeIESavingCost}
-          formula="Sal_officer × IE saving %" indent isCurrency />
-        <CalcStep label="Monthly Benefit" value={c.absenteeTotalBenefit}
-          formula="IE saving cost + employee saving cost" isFinal isCurrency />
+        <CalcStep label="Absent line percentage" value={params.absenteeLinePercentage} unit="%"
+          formula="user input" />
+        <CalcStep label="Affected lines" value={c.absenteeAffectedLines} unit="lines"
+          formula="N_lines × (absent_% ÷ 100)" indent />
+        <CalcStep label="Rebalancing time saving" value={c.absenteeRebalancingTimeSaving} unit="min" formula="T_rebalance − 5 (app saves 5 min)" />
+        <CalcStep label="Total time saving per line" value={c.absenteeTotalTimeSavingPerLine} unit="min" formula="T_find + rebalancing saving" indent />
+        <CalcStep label="Total saving per line/day" value={c.absenteeTotalTimePerLinePerDay} unit="min/day" formula="saving/line × Emp_line" />
+        <CalcStep label="Total saving per week" value={c.absenteeTotalTimePerWeek} unit="min/week" formula="per line/day × W_days × affected lines" indent />
+        <CalcStep label="Total saving per month" value={c.absenteeTotalTimePerMonth} unit="hrs" formula="(per week × 4) ÷ 60" indent />
+        <CalcStep label="Total working hrs per line" value={c.absenteeTotalWorkingHoursPerLine} unit="hrs" formula="W_hrs_emp × Emp_line × 4" />
+        <CalcStep label="Employee saving time %" value={c.absenteeSavingTimePercentage} unit="%" formula="(saving hrs ÷ working hrs × affected lines) × 100" />
+        <CalcStep label="Labor cost per line" value={c.absenteeTotalLaborCostPerLine} formula="Sal_emp × Emp_line" isCurrency />
+        <CalcStep label="Employee saving cost" value={c.absenteeEmployeeSavingCost} formula="labor cost × saving %" indent isCurrency />
+        <CalcStep label="IE saving time/month" value={c.absenteeIESavingTimePerMonth} unit="hrs" formula="(T_analysis ÷ 60) × Cap_freq × 4" />
+        <CalcStep label="IE saving %" value={c.absenteeIESavingPercentage} unit="%" formula="(IE saving hrs ÷ W_hrs_officer×4) × 100" indent />
+        <CalcStep label="IE saving cost" value={c.absenteeIESavingCost} formula="Sal_officer × IE saving %" indent isCurrency />
+        <CalcStep label="Monthly Benefit" value={c.absenteeTotalBenefit} formula="IE saving cost + employee saving cost" isFinal isCurrency />
       </ModuleCard>
 
-      {/* 3. Capacity Balancing */}
       <ModuleCard title="Capacity Balancing" icon={BarChart3}
         gradientFrom="from-orange-500" gradientTo="to-orange-400"
         accentColor="text-orange-500" benefit={c.capacityTotalBenefit}>
-        <CalcStep label="Time saving per line/day" value={c.capacityTimeSavingPerLinePerDay} unit="min/day"
-          formula="T_cap_rebal + T_analysis" />
-        <CalcStep label="Time saving — all lines/day" value={c.capacityTimeSavingAllLinesPerDay} unit="min/day"
-          formula="per line × N_lines" indent />
-        <CalcStep label="Time saving — all lines/month" value={c.capacityTimeSavingAllLinesPerMonth} unit="hrs"
-          formula="(all lines/day × W_days × 4) ÷ 60" indent />
-        <CalcStep label="Saved time %" value={c.capacitySavedTimePercentage} unit="%"
-          formula="(saving hrs ÷ total officer hrs) × 100" />
-        <CalcStep label="Monthly Benefit" value={c.capacityTotalBenefit}
-          formula="total officer cost × saved time %" isFinal isCurrency />
+        <CalcStep label="Time saving per line/day" value={c.capacityTimeSavingPerLinePerDay} unit="min/day" formula="T_cap_rebal + T_analysis" />
+        <CalcStep label="Time saving — all lines/day" value={c.capacityTimeSavingAllLinesPerDay} unit="min/day" formula="per line × N_lines" indent />
+        <CalcStep label="Time saving — all lines/month" value={c.capacityTimeSavingAllLinesPerMonth} unit="hrs" formula="(all lines/day × W_days × 4) ÷ 60" indent />
+        <CalcStep label="Saved time %" value={c.capacitySavedTimePercentage} unit="%" formula="(saving hrs ÷ total officer hrs) × 100" />
+        <CalcStep label="Monthly Benefit" value={c.capacityTotalBenefit} formula="total officer cost × saved time %" isFinal isCurrency />
       </ModuleCard>
 
-      {/* 4. Reports */}
       <ModuleCard title="Automated Reports" icon={PieChart}
         gradientFrom="from-emerald-500" gradientTo="to-emerald-400"
         accentColor="text-emerald-600" benefit={c.reportsTotalBenefit}>
-        <CalcStep label="Time saving per day" value={c.reportsTimeSavingPerDay} unit="min/day"
-          formula="(T_rep_analysis + T_rep_create) × R_qty" />
-        <CalcStep label="Time saving per month" value={c.reportsTimeSavingPerMonth} unit="hrs"
-          formula="(per day × W_days × 4) ÷ 60" indent />
-        <CalcStep label="Saved time %" value={c.reportsSavedTimePercentage} unit="%"
-          formula="(saving hrs ÷ W_hrs_officer×4) × 100" />
-        <CalcStep label="Monthly Benefit" value={c.reportsTotalBenefit}
-          formula="Sal_officer × saved % × N_officers" isFinal isCurrency />
+        <CalcStep label="Time saving per day" value={c.reportsTimeSavingPerDay} unit="min/day" formula="(T_rep_analysis + T_rep_create) × R_qty" />
+        <CalcStep label="Time saving per month" value={c.reportsTimeSavingPerMonth} unit="hrs" formula="(per day × W_days × 4) ÷ 60" indent />
+        <CalcStep label="Saved time %" value={c.reportsSavedTimePercentage} unit="%" formula="(saving hrs ÷ W_hrs_officer×4) × 100" />
+        <CalcStep label="Monthly Benefit" value={c.reportsTotalBenefit} formula="Sal_officer × saved % × N_officers" isFinal isCurrency />
       </ModuleCard>
-
     </div>
   )
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CUSTOM MODULE SYSTEM — types, storage, formula evaluator
+// CUSTOM MODULE SYSTEM
 // ═══════════════════════════════════════════════════════════════════════════
 
 type ParamType = 'time' | 'cost' | 'count' | 'percent'
@@ -711,7 +662,6 @@ function ROICalculator() {
 
   const calculations = useMemo(() => calculateROI(params), [params])
 
-  // Custom modules total benefit (LKR)
   const customTotal = useMemo(() => customModules.reduce((sum, m) => {
     const vars = Object.fromEntries(m.params.map(p => [p.variable, p.value]))
     const finalStep = [...m.steps].reverse().find(s => s.isFinal)
@@ -745,9 +695,7 @@ function ROICalculator() {
     setParams(prev => ({ ...prev, [key]: value }))
   }
 
-  const resetToDefaults = () => {
-    setParams(defaultParams)
-  }
+  const resetToDefaults = () => setParams(defaultParams)
   
   return (
     <section className="py-16 px-4">
@@ -769,9 +717,7 @@ function ROICalculator() {
                     <Calculator className="w-5 h-5 text-kingslake-500" />
                     Parameters
                   </CardTitle>
-                  <Button variant="outline" size="sm" onClick={resetToDefaults}>
-                    Reset
-                  </Button>
+                  <Button variant="outline" size="sm" onClick={resetToDefaults}>Reset</Button>
                 </div>
               </CardHeader>
               <CardContent>
@@ -782,6 +728,11 @@ function ROICalculator() {
                   </TabsList>
                   
                   <TabsContent value="general" className="space-y-4">
+                    {/* IE Officer params */}
+                    <p className="text-sm font-medium text-kingslake-600 flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      IE Officers
+                    </p>
                     <InputField
                       label="Working Days per Week"
                       value={params.workingDaysPerWeek}
@@ -818,6 +769,39 @@ function ROICalculator() {
                       icon={DollarSign}
                       step={1000}
                     />
+
+                    <Separator />
+
+                    {/* Employee params */}
+                    <p className="text-sm font-medium text-kingslake-600 flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Employees
+                    </p>
+                    <InputField
+                      label="Employees per Line"
+                      value={params.employeesPerLine}
+                      onChange={(v) => updateParam('employeesPerLine', v)}
+                      unit="employees"
+                      icon={Users}
+                    />
+                    <InputField
+                      label="Employee Working Hours/Week"
+                      value={params.employeeWorkingHours}
+                      onChange={(v) => updateParam('employeeWorkingHours', v)}
+                      unit="hours"
+                      icon={Clock}
+                    />
+                    <InputField
+                      label="Employee Avg. Salary"
+                      value={params.employeeAvgSalary}
+                      onChange={(v) => updateParam('employeeAvgSalary', v)}
+                      unit={`${currency.code}/mo`}
+                      icon={DollarSign}
+                      step={1000}
+                    />
+
+                    <Separator />
+
                     <InputField
                       label="Investment Cost per Month"
                       value={params.costOfInvestmentPerMonth}
@@ -856,6 +840,14 @@ function ROICalculator() {
                         Absentee Balancing
                       </p>
                       <InputField
+                        label="Absent Line Percentage"
+                        value={params.absenteeLinePercentage}
+                        onChange={(v) => updateParam('absenteeLinePercentage', v)}
+                        unit="%"
+                        min={0}
+                        step={1}
+                      />
+                      <InputField
                         label="Find Replacement Time"
                         value={params.replaceEmployeesFindingTime}
                         onChange={(v) => updateParam('replaceEmployeesFindingTime', v)}
@@ -866,25 +858,6 @@ function ROICalculator() {
                         value={params.rebalanceTime}
                         onChange={(v) => updateParam('rebalanceTime', v)}
                         unit="min"
-                      />
-                      <InputField
-                        label="Employees per Line"
-                        value={params.employeesPerLine}
-                        onChange={(v) => updateParam('employeesPerLine', v)}
-                        unit="employees"
-                      />
-                      <InputField
-                        label="Employee Working Hours/Week"
-                        value={params.employeeWorkingHours}
-                        onChange={(v) => updateParam('employeeWorkingHours', v)}
-                        unit="hours"
-                      />
-                      <InputField
-                        label="Employee Avg. Salary"
-                        value={params.employeeAvgSalary}
-                        onChange={(v) => updateParam('employeeAvgSalary', v)}
-                        unit={`${currency.code}/mo`}
-                        step={1000}
                       />
                     </div>
                     
@@ -942,7 +915,6 @@ function ROICalculator() {
                       />
                     </div>
 
-                    {/* ── Custom module params appended below built-ins ── */}
                     {customModules.map(m => (
                       m.params.length > 0 && (
                         <div key={m.id}>
@@ -1000,8 +972,7 @@ function ROICalculator() {
           
           {/* Results Panel */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Summary Cards */}
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
               <ResultCard
                 title="Total Monthly Benefit"
                 value={formatCurrency(lkr(grandTotal, currency), currency)}
@@ -1033,10 +1004,8 @@ function ROICalculator() {
               />
             </div>
 
-            {/* Built-in Module Breakdown */}
-            <ModuleDetailCards calculations={calculations} />
+            <ModuleDetailCards calculations={calculations} params={params} />
 
-            {/* Custom Modules */}
             <CustomModulesSection
               modules={customModules}
               onAdd={() => { setEditingModule(undefined); setBuilderOpen(true) }}
@@ -1045,7 +1014,6 @@ function ROICalculator() {
               onUpdateModule={(m) => saveModules(customModules.map(x => x.id === m.id ? m : x))}
             />
             
-            {/* Total Benefits Breakdown */}
             <Card className="bg-gradient-to-br from-kingslake-900 to-kingslake-800 text-white">
               <CardContent className="p-6">
                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -1082,9 +1050,7 @@ function ROICalculator() {
                       </div>
                     </div>
                   ))}
-
                   <Separator className="bg-kingslake-600 my-4" />
-
                   <div className="flex items-center justify-between text-lg">
                     <span className="text-kingslake-200">Total Monthly Benefits</span>
                     <span className="font-bold text-2xl">{formatCurrency(lkr(grandTotal, currency), currency)}</span>
@@ -1096,7 +1062,6 @@ function ROICalculator() {
         </div>
       </div>
 
-      {/* Module Builder Modal */}
       {builderOpen && (
         <ModuleBuilder
           initial={editingModule}
@@ -1107,9 +1072,16 @@ function ROICalculator() {
     </section>
   )
 }
-
+  
 function FeaturesSection() {
   const features = [
+    {
+      icon: List,
+      title: 'Line Balancing Features',
+      description: 'Intelligent line balancing tools to optimize production flow and reduce bottlenecks. Get real-time recommendations for optimal staffing and resource allocation.',
+      color: 'from-teal-500 to-teal-400',
+      href: 'https://kingslakeblue.com/line-balancing/features/'
+    },
     {
       icon: FileText,
       title: 'Study Management',
@@ -1118,9 +1090,10 @@ function FeaturesSection() {
     },
     {
       icon: Users,
-      title: 'Absentee Balancing',
-      description: 'Quickly find replacements and rebalance lines when employees are absent. Minimize production disruptions.',
-      color: 'from-violet-500 to-violet-400'
+      title: 'Auto Absentee Balancing',
+      description: 'Automatically rebalance lines when absenteeism occurs according to your selection. Save time and maintain productivity with intelligent recommendations.',
+      color: 'from-violet-500 to-violet-400',
+      href: 'https://find-trial-27479826.figma.site/'
     },
     {
       icon: BarChart3,
@@ -1135,7 +1108,7 @@ function FeaturesSection() {
       color: 'from-emerald-500 to-emerald-400'
     }
   ]
-  
+
   return (
     <section className="py-16 px-4 bg-gradient-to-b from-white to-kingslake-50">
       <div className="max-w-6xl mx-auto">
@@ -1145,24 +1118,45 @@ function FeaturesSection() {
             Our comprehensive suite of production management tools designed to maximize efficiency and minimize waste.
           </p>
         </div>
-        
         <div className="grid md:grid-cols-2 gap-6">
-          {features.map((feature, index) => (
-            <Card key={index} className="card-hover group">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                    <feature.icon className="w-6 h-6 text-white" />
+          {features.map((feature, index) => {
+            const cardContent = (
+              <Card className="card-hover group h-full">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4">
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                      <feature.icon className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-foreground mb-2">{feature.title}</h3>
+                      <p className="text-muted-foreground text-sm">{feature.description}</p>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-kingslake-400 opacity-0 group-hover:opacity-100 transform translate-x-0 group-hover:translate-x-1 transition-all duration-300" />
                   </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-foreground mb-2">{feature.title}</h3>
-                    <p className="text-muted-foreground text-sm">{feature.description}</p>
-                  </div>
-                  <ArrowRight className="w-5 h-5 text-kingslake-400 opacity-0 group-hover:opacity-100 transform translate-x-0 group-hover:translate-x-1 transition-all duration-300" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            )
+
+            if (feature.href) {
+              return (
+                <a
+                  key={index}
+                  href={feature.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block group"
+                >
+                  {cardContent}
+                </a>
+              )
+            }
+
+            return (
+              <div key={index}>
+                {cardContent}
+              </div>
+            )
+          })}
         </div>
       </div>
     </section>
@@ -1183,24 +1177,19 @@ function Footer() {
               <p className="text-xs text-kingslake-300">Intelligent Production Solutions</p>
             </div>
           </div>
-          
           <div className="flex items-center gap-6 text-sm text-kingslake-300">
             <a href="#" className="hover:text-white transition-colors">About</a>
             <a href="#" className="hover:text-white transition-colors">Features</a>
             <a href="#" className="hover:text-white transition-colors">Contact</a>
             <a href="#" className="hover:text-white transition-colors">Privacy</a>
           </div>
-          
-          <p className="text-sm text-kingslake-400">
-            © 2026 KingsLakeBlue. All rights reserved.
-          </p>
+          <p className="text-sm text-kingslake-400">© 2026 KingsLakeBlue. All rights reserved.</p>
         </div>
       </div>
     </footer>
   )
 }
 
-// ── Single parameter row in the builder ─────────────────────────────────
 function ParamRow({
   param, onChange, onRemove,
 }: {
@@ -1267,9 +1256,8 @@ function ParamRow({
   )
 }
 
-// ── Single step row in the builder ──────────────────────────────────────
 function StepRow({
-  step, paramVars, onChange, onRemove,
+  step, onChange, onRemove,
 }: {
   step: CustomStep
   paramVars: string[]
@@ -1289,7 +1277,7 @@ function StepRow({
       <div className="col-span-4">
         <input
           className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 font-mono focus:outline-none focus:border-kingslake-400"
-          placeholder={`Formula e.g. T_insp * N_lines / 60`}
+          placeholder="Formula e.g. T_insp * N_lines / 60"
           value={step.formula}
           onChange={e => onChange({ ...step, formula: e.target.value })}
         />
@@ -1325,7 +1313,6 @@ function StepRow({
   )
 }
 
-// ── Module builder modal ─────────────────────────────────────────────────
 function ModuleBuilder({
   initial, onSave, onClose,
 }: {
@@ -1364,13 +1351,11 @@ function ModuleBuilder({
     })
   }
 
-  // Live preview vars
   const previewVars = Object.fromEntries(params.map(p => [p.variable, p.value]))
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             <Calculator className="w-5 h-5 text-kingslake-500" />
@@ -1380,7 +1365,6 @@ function ModuleBuilder({
         </div>
 
         <div className="overflow-y-auto flex-1 px-6 py-4 space-y-5">
-          {/* Name + color */}
           <div className="flex gap-4 items-end">
             <div className="flex-1">
               <Label className="text-sm font-medium mb-1 block">Module Name</Label>
@@ -1397,7 +1381,6 @@ function ModuleBuilder({
             </div>
           </div>
 
-          {/* Section tabs */}
           <div className="flex gap-1 bg-slate-100 rounded-lg p-1 w-fit">
             {(['params', 'steps'] as const).map(s => (
               <button key={s} onClick={() => setActiveSection(s)}
@@ -1407,7 +1390,6 @@ function ModuleBuilder({
             ))}
           </div>
 
-          {/* Parameters section */}
           {activeSection === 'params' && (
             <div className="space-y-2">
               <div className="grid grid-cols-12 gap-2 px-2 text-xs font-medium text-slate-400 uppercase tracking-wide">
@@ -1434,7 +1416,6 @@ function ModuleBuilder({
             </div>
           )}
 
-          {/* Steps section */}
           {activeSection === 'steps' && (
             <div className="space-y-2">
               <div className="grid grid-cols-12 gap-2 px-2 text-xs font-medium text-slate-400 uppercase tracking-wide">
@@ -1448,7 +1429,6 @@ function ModuleBuilder({
                   <StepRow step={s} paramVars={paramVars}
                     onChange={updated => setSteps(prev => prev.map(x => x.id === s.id ? updated : x))}
                     onRemove={() => setSteps(prev => prev.filter(x => x.id !== s.id))} />
-                  {/* Live preview */}
                   {s.formula && (
                     <div className="text-xs ml-2 mt-0.5">
                       {(() => {
@@ -1477,11 +1457,9 @@ function ModuleBuilder({
           {error && <p className="text-sm text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">{error}</p>}
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100">
           <button onClick={onClose} className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 transition-colors">Cancel</button>
-          <button onClick={handleSave}
-            className="btn-primary px-5 py-2 text-sm">
+          <button onClick={handleSave} className="btn-primary px-5 py-2 text-sm">
             {initial ? 'Save Changes' : 'Add Module'}
           </button>
         </div>
@@ -1490,20 +1468,14 @@ function ModuleBuilder({
   )
 }
 
-// ── Rendered custom module card ──────────────────────────────────────────
 function CustomModuleCard({ module, onEdit, onDelete, onUpdateModule }: {
   module: CustomModule
   onEdit: () => void
   onDelete: () => void
   onUpdateModule: (m: CustomModule) => void
 }) {
-  const currency = useCurrency()
   const [gradFrom, gradTo] = module.color.split(' ')
-
-  // Live param values — editable in-card
   const [localParams, setLocalParams] = useState(module.params)
-
-  // Recompute when module changes externally (e.g. after Edit in builder)
   const effectiveParams = localParams
 
   const updateParamValue = (id: string, value: number) => {
@@ -1518,7 +1490,6 @@ function CustomModuleCard({ module, onEdit, onDelete, onUpdateModule }: {
     onUpdateModule({ ...module, params: updated })
   }
 
-  // Compute all step values from live params
   const vars = Object.fromEntries(effectiveParams.map(p => [p.variable, p.value]))
   const stepResults = module.steps.map(s => ({
     ...s,
@@ -1536,7 +1507,6 @@ function CustomModuleCard({ module, onEdit, onDelete, onUpdateModule }: {
       accentColor="text-slate-500"
       benefit={benefitLKR}
     >
-      {/* Live-editable params */}
       <div className="mb-3 pb-3 border-b border-slate-100 space-y-2">
         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Parameters</p>
         {effectiveParams.map(p => (
@@ -1563,7 +1533,6 @@ function CustomModuleCard({ module, onEdit, onDelete, onUpdateModule }: {
         )}
       </div>
 
-      {/* Calculation steps */}
       {stepResults.map(s => (
         <CalcStep
           key={s.id}
@@ -1576,7 +1545,6 @@ function CustomModuleCard({ module, onEdit, onDelete, onUpdateModule }: {
         />
       ))}
 
-      {/* Edit / Delete buttons */}
       <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100">
         <button onClick={onEdit}
           className="flex-1 text-xs py-1.5 rounded-lg border border-kingslake-200 text-kingslake-600 hover:bg-kingslake-50 transition-colors font-medium">
@@ -1591,7 +1559,6 @@ function CustomModuleCard({ module, onEdit, onDelete, onUpdateModule }: {
   )
 }
 
-// ── Custom modules section (shown below built-in modules in ROI Calculator) 
 function CustomModulesSection({
   modules, onAdd, onEdit, onDelete, onUpdateModule,
 }: {
@@ -1603,7 +1570,6 @@ function CustomModulesSection({
 }) {
   const currency = useCurrency()
 
-  // Total benefit of all custom modules (LKR)
   const customTotal = modules.reduce((sum, m) => {
     const vars = Object.fromEntries(m.params.map(p => [p.variable, p.value]))
     const finalStep = [...m.steps].reverse().find(s => s.isFinal)
@@ -1627,8 +1593,7 @@ function CustomModulesSection({
             </p>
           )}
         </div>
-        <button onClick={onAdd}
-          className="btn-primary text-xs px-4 py-2 flex items-center gap-1.5">
+        <button onClick={onAdd} className="btn-primary text-xs px-4 py-2 flex items-center gap-1.5">
           + New Module
         </button>
       </div>
@@ -1658,7 +1623,6 @@ function CustomModulesSection({
     </div>
   )
 }
-
 
 function CurrencySelector({ value, onChange }: { value: CurrencyConfig; onChange: (c: CurrencyConfig) => void }) {
   const [open, setOpen] = useState(false)
@@ -1705,20 +1669,17 @@ function App() {
   return (
     <CurrencyContext.Provider value={currency}>
       <div className="min-h-screen bg-background">
-        {/* Header */}
         <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-kingslake-100">
           <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
             <Logo />
             <CurrencySelector value={currency} onChange={setCurrency} />
           </div>
         </header>
-        
         <main>
           <HeroSection />
           <ROICalculator />
           <FeaturesSection />
         </main>
-        
         <Footer />
       </div>
     </CurrencyContext.Provider>
