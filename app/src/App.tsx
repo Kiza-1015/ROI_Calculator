@@ -1088,8 +1088,7 @@ function FeaturesSection() {
       icon: Users,
       title: 'Auto Absentee Balancing',
       description: 'Automatically rebalance lines when absenteeism occurs according to your selection. Save time and maintain productivity with intelligent recommendations.',
-      color: 'from-violet-500 to-violet-400',
-      href: 'https://find-trial-27479826.figma.site/'
+      color: 'from-violet-500 to-violet-400'
     },
     {
       icon: BarChart3,
