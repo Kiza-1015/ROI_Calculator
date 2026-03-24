@@ -404,6 +404,17 @@ function ResultCard({
     purple: 'from-violet-500 to-violet-400',
     orange: 'from-orange-500 to-orange-400',
   }
+
+  const trendMeta: Record<string, { color: string; icon: string }> = {
+    Poor:      { color: '#dc2626', icon: '#ef4444' },
+    Low:       { color: '#ea580c', icon: '#f97316' },
+    Moderate:  { color: '#ca8a04', icon: '#eab308' },
+    Good:      { color: '#16a34a', icon: '#22c55e' },
+    Strong:    { color: '#059669', icon: '#10b981' },
+    Excellent: { color: '#4f46e5', icon: '#6366f1' },
+  }
+
+  const meta = trend ? trendMeta[trend] : null
   
   return (
     <Card className="card-hover">
@@ -413,10 +424,10 @@ function ResultCard({
             <p className="text-xs text-muted-foreground mb-1">{title}</p>
             <p className="text-base font-bold text-foreground leading-snug">{value}</p>
             {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
-            {trend && (
+            {trend && meta && (
               <div className="flex items-center gap-1 mt-2">
-                <TrendingUp className="w-3 h-3 text-emerald-500" />
-                <span className="text-xs text-emerald-600 font-medium">{trend}</span>
+                <TrendingUp className="w-3 h-3" style={{ color: meta.icon }} />
+                <span className="text-xs font-medium" style={{ color: meta.color }}>{trend}</span>
               </div>
             )}
           </div>
@@ -987,7 +998,13 @@ function ROICalculator() {
                 value={`${formatNumber(grandROI, 0)}%`}
                 subtitle="Return on Investment"
                 icon={TrendingUp}
-                trend="Excellent"
+                trend={
+                  grandROI < 0 ? 'Poor' :
+                  grandROI < 25 ? 'Low' :
+                  grandROI < 75 ? 'Moderate' :
+                  grandROI < 150 ? 'Good' :
+                  grandROI < 300 ? 'Strong' : 'Excellent'
+                }
                 color="blue"
               />
               <ResultCard
