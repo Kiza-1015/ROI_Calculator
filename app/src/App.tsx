@@ -1,4 +1,4 @@
-import { useState, useMemo, useContext, createContext } from 'react'
+import { useState, useMemo, useContext, createContext, useEffect } from 'react'
 import './App.css'
 import { 
   Calculator, 
@@ -36,15 +36,16 @@ interface CurrencyConfig {
   rateFromLKR: number   // how many of this currency per 1 LKR
 }
 
+// Fallback rates (Mar 24, 2026 — X-Rates 08:00 UTC)
 const CURRENCIES: CurrencyConfig[] = [
-  { code: 'LKR', label: 'Sri Lankan Rupee',  symbol: 'Rs',  locale: 'en-LK', rateFromLKR: 1        },
-  { code: 'USD', label: 'US Dollar',         symbol: '$',   locale: 'en-US', rateFromLKR: 0.0033   },
-  { code: 'EUR', label: 'Euro',              symbol: '€',   locale: 'de-DE', rateFromLKR: 0.0030   },
-  { code: 'GBP', label: 'British Pound',     symbol: '£',   locale: 'en-GB', rateFromLKR: 0.0026   },
-  { code: 'INR', label: 'Indian Rupee',      symbol: '₹',   locale: 'en-IN', rateFromLKR: 0.275    },
-  { code: 'AUD', label: 'Australian Dollar', symbol: 'A$',  locale: 'en-AU', rateFromLKR: 0.0051   },
-  { code: 'SGD', label: 'Singapore Dollar',  symbol: 'S$',  locale: 'en-SG', rateFromLKR: 0.0044   },
-  { code: 'JPY', label: 'Japanese Yen',      symbol: '¥',   locale: 'ja-JP', rateFromLKR: 0.493    },
+  { code: 'LKR', label: 'Sri Lankan Rupee',  symbol: 'Rs',  locale: 'en-LK', rateFromLKR: 1         },
+  { code: 'USD', label: 'US Dollar',         symbol: '$',   locale: 'en-US', rateFromLKR: 0.003189  },
+  { code: 'EUR', label: 'Euro',              symbol: '€',   locale: 'de-DE', rateFromLKR: 0.002747  },
+  { code: 'GBP', label: 'British Pound',     symbol: '£',   locale: 'en-GB', rateFromLKR: 0.002374  },
+  { code: 'INR', label: 'Indian Rupee',      symbol: '₹',   locale: 'en-IN', rateFromLKR: 0.299132  },
+  { code: 'AUD', label: 'Australian Dollar', symbol: 'A$',  locale: 'en-AU', rateFromLKR: 0.004562  },
+  { code: 'SGD', label: 'Singapore Dollar',  symbol: 'S$',  locale: 'en-SG', rateFromLKR: 0.004074  },
+  { code: 'JPY', label: 'Japanese Yen',      symbol: '¥',   locale: 'ja-JP', rateFromLKR: 0.505449  },
 ]
 
 // Context
@@ -142,10 +143,10 @@ const defaultParams: ROIParams = {
   numberOfLines: 40,
   numberOfIEOfficers: 5,
   workingHoursPerWeekIE: 45,
-  avgSalaryOfficer: 75000,       // LKR — converted to display currency at render time
+  avgSalaryOfficer: 209815,       // LKR — converted to display currency at render time
   employeesPerLine: 10,
   employeeWorkingHours: 50,
-  employeeAvgSalary: 50000,      // LKR
+  employeeAvgSalary: 74944,      // LKR
   
   // Study App
   studiesNoteDownTime: 5,
@@ -167,7 +168,7 @@ const defaultParams: ROIParams = {
   reportCreationTime: 10,
   
   // Investment
-  costOfInvestmentPerMonth: 300000, // LKR
+  costOfInvestmentPerMonth: 3136406, // LKR
 }
 
 function calculateROI(params: ROIParams): ROICalculations {
@@ -269,15 +270,18 @@ function formatCurrency(value: number, currency: CurrencyConfig): string {
     currency: currency.code,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(value)
-}
-
-function lkr(value: number, currency: CurrencyConfig): number {
-  return value * currency.rateFromLKR
+  }).format(lkrToDisplay(value, currency))
 }
 
 function formatNumber(value: number, decimals: number = 1): string {
   return value.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
+function lkrToDisplay(lkr: number, currency: CurrencyConfig): number {
+  return lkr * currency.rateFromLKR
+}
+function displayToLkr(display: number, currency: CurrencyConfig): number {
+  return currency.rateFromLKR === 0 ? 0 : display / currency.rateFromLKR
 }
 
 function Logo() {
@@ -436,7 +440,7 @@ function CalcStep({ label, value, unit = '', formula, isFinal = false, indent = 
 }) {
   const currency = useCurrency()
   const displayValue = isCurrency
-    ? formatCurrency(lkr(value, currency), currency)
+    ? formatCurrency(value, currency)
     : `${formatNumber(value, value % 1 === 0 ? 0 : 2)} ${unit}`
 
   return (
@@ -487,7 +491,7 @@ function ModuleCard({ title, icon: Icon, gradientFrom, gradientTo, accentColor, 
         <CardContent className="pt-0 pb-3">
           <div className="flex items-center justify-between rounded-lg px-3 py-2 bg-emerald-50 border border-emerald-100">
             <span className="text-sm text-emerald-700 font-medium">Monthly Benefit</span>
-            <span className="text-base font-bold text-emerald-700">{formatCurrency(lkr(benefit, currency), currency)}</span>
+            <span className="text-base font-bold text-emerald-700">{formatCurrency(benefit, currency)}</span>
           </div>
           {!expanded && (
             <p className="text-xs text-slate-400 mt-2 text-center">Click to see intermediate calculations</p>
@@ -759,11 +763,11 @@ function ROICalculator() {
                     />
                     <InputField
                       label="Avg. IE Officer Salary"
-                      value={params.avgSalaryOfficer}
-                      onChange={(v) => updateParam('avgSalaryOfficer', v)}
+                      value={lkrToDisplay(params.avgSalaryOfficer, currency)}
+                      onChange={(v) => updateParam('avgSalaryOfficer', displayToLkr(v, currency))}
                       unit={`${currency.code}/mo`}
                       icon={DollarSign}
-                      step={1000}
+                      step={Math.max(1, Math.round(lkrToDisplay(1000, currency)))}
                     />
 
                     <Separator />
@@ -789,22 +793,22 @@ function ROICalculator() {
                     />
                     <InputField
                       label="Employee Avg. Salary"
-                      value={params.employeeAvgSalary}
-                      onChange={(v) => updateParam('employeeAvgSalary', v)}
+                      value={lkrToDisplay(params.employeeAvgSalary, currency)}
+                      onChange={(v) => updateParam('employeeAvgSalary', displayToLkr(v, currency))}
                       unit={`${currency.code}/mo`}
                       icon={DollarSign}
-                      step={1000}
+                      step={Math.max(1, Math.round(lkrToDisplay(1000, currency)))}
                     />
 
                     <Separator />
 
                     <InputField
                       label="Investment Cost per Month"
-                      value={params.costOfInvestmentPerMonth}
-                      onChange={(v) => updateParam('costOfInvestmentPerMonth', v)}
+                      value={lkrToDisplay(params.costOfInvestmentPerMonth, currency)}
+                      onChange={(v) => updateParam('costOfInvestmentPerMonth', displayToLkr(v, currency))}
                       unit={`${currency.code}/mo`}
                       icon={DollarSign}
-                      step={1000}
+                      step={Math.max(1, Math.round(lkrToDisplay(1000, currency)))}
                     />
                   </TabsContent>
                   
@@ -965,13 +969,15 @@ function ROICalculator() {
               </CardContent>
             </Card>
           </div>
+          {/* value={formatCurrency(lkr(params.costOfInvestmentPerMonth, currency), currency)} */}
+
           
           {/* Results Panel */}
           <div className="lg:col-span-2 space-y-6">
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
               <ResultCard
                 title="Total Monthly Benefit"
-                value={formatCurrency(lkr(grandTotal, currency), currency)}
+                value={formatCurrency(grandTotal, currency)}
                 subtitle="Built-in + custom modules"
                 icon={DollarSign}
                 color="green"
@@ -993,7 +999,7 @@ function ROICalculator() {
               />
               <ResultCard
                 title="Monthly Investment"
-                value={formatCurrency(lkr(params.costOfInvestmentPerMonth, currency), currency)}
+                value={formatCurrency(params.costOfInvestmentPerMonth, currency)}
                 subtitle="KingsLakeBlue solution cost"
                 icon={Briefcase}
                 color="orange"
@@ -1036,7 +1042,7 @@ function ROICalculator() {
                           <div className={`w-3 h-3 rounded-full ${row.dot}`}></div>
                           <span className="text-kingslake-100 text-sm">{row.label}</span>
                         </div>
-                        <span className="font-semibold text-sm">{formatCurrency(lkr(row.value, currency), currency)}</span>
+                        <span className="font-semibold text-sm">{formatCurrency(row.value, currency)}</span>
                       </div>
                       <div className="w-full bg-kingslake-700/50 rounded-full h-2">
                         <div
@@ -1049,7 +1055,7 @@ function ROICalculator() {
                   <Separator className="bg-kingslake-600 my-4" />
                   <div className="flex items-center justify-between text-lg">
                     <span className="text-kingslake-200">Total Monthly Benefits</span>
-                    <span className="font-bold text-2xl">{formatCurrency(lkr(grandTotal, currency), currency)}</span>
+                    <span className="font-bold text-2xl">{formatCurrency(grandTotal, currency)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -1587,7 +1593,7 @@ function CustomModulesSection({
           </h3>
           {modules.length > 0 && (
             <p className="text-xs text-slate-400 mt-0.5">
-              Combined benefit: <span className="font-semibold text-emerald-600">{formatCurrency(lkr(customTotal, currency), currency)}</span>/month
+              Combined benefit: <span className="font-semibold text-emerald-600">{formatCurrency(customTotal, currency)}</span>/month
             </p>
           )}
         </div>
@@ -1622,8 +1628,18 @@ function CustomModulesSection({
   )
 }
 
-function CurrencySelector({ value, onChange }: { value: CurrencyConfig; onChange: (c: CurrencyConfig) => void }) {
+function CurrencySelector({
+  value, currencies, onChange
+}: {
+  value: CurrencyConfig
+  currencies: CurrencyConfig[]
+  onChange: (c: CurrencyConfig) => void
+}) {
   const [open, setOpen] = useState(false)
+
+  // Find USD rate to calculate cross rates for display
+  const usdCurrency = currencies.find(c => c.code === 'USD')
+
   return (
     <div className="relative">
       <button
@@ -1636,25 +1652,41 @@ function CurrencySelector({ value, onChange }: { value: CurrencyConfig; onChange
         <ChevronDown className="w-3 h-3 text-muted-foreground" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-1 w-64 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden">
+          <div className="px-3 py-2 border-b border-slate-100">
+            <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">1 USD =</p>
+          </div>
           <div className="p-1.5">
-            {CURRENCIES.map(c => (
-              <button
-                key={c.code}
-                onClick={() => { onChange(c); setOpen(false) }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
-                  c.code === value.code
-                    ? 'bg-kingslake-50 text-kingslake-700 font-semibold'
-                    : 'text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <span className="w-6 text-center font-mono">{c.symbol}</span>
-                  <span>{c.label}</span>
-                </span>
-                <span className="text-xs text-muted-foreground">{c.code}</span>
-              </button>
-            ))}
+            {currencies.map(c => {
+              // Rate of this currency per 1 USD
+              const rateVsUsd = usdCurrency
+                ? c.rateFromLKR / usdCurrency.rateFromLKR
+                : null
+
+              return (
+                <button
+                  key={c.code}
+                  onClick={() => { onChange(c); setOpen(false) }}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+                    c.code === value.code
+                      ? 'bg-kingslake-50 text-kingslake-700 font-semibold'
+                      : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="w-6 text-center font-mono text-base">{c.symbol}</span>
+                    <span>{c.code}</span>
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">
+                    {c.code === 'USD'
+                      ? '1.000000'
+                      : rateVsUsd !== null
+                        ? rateVsUsd.toFixed(4)
+                        : '—'}
+                  </span>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
@@ -1663,14 +1695,83 @@ function CurrencySelector({ value, onChange }: { value: CurrencyConfig; onChange
 }
 
 function App() {
-  const [currency, setCurrency] = useState<CurrencyConfig>(CURRENCIES[0])
+  const [currencies, setCurrencies] = useState<CurrencyConfig[]>(CURRENCIES)
+  const [currency, setCurrency] = useState<CurrencyConfig>(CURRENCIES[1]) // USD is index 1
+  const [ratesLoading, setRatesLoading] = useState(true)
+  const [ratesError, setRatesError] = useState(false)
+
+  // Fetch live rates on mount via Frankfurter (ECB-sourced, free, no key needed)
+  useEffect(() => {
+  async function fetchRates() {
+    try {
+      // Primary: jsDelivr CDN — fetches all rates with LKR as base currency
+      const primaryUrl = 'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/lkr.json'
+      // Fallback: Cloudflare Pages
+      const fallbackUrl = 'https://latest.currency-api.pages.dev/v1/currencies/lkr.json'
+
+      let data: { lkr: Record<string, number> } | null = null
+
+      try {
+        const res = await fetch(primaryUrl)
+        if (res.ok) data = await res.json()
+      } catch { /* try fallback */ }
+
+      if (!data) {
+        const res = await fetch(fallbackUrl)
+        if (!res.ok) throw new Error('Both endpoints failed')
+        data = await res.json()
+      }
+
+      if (!data) throw new Error('No data returned')  // ← here
+
+      const rates = data.lkr
+
+      const updated = CURRENCIES.map(c => {
+        if (c.code === 'LKR') return c
+        const rate = rates[c.code.toLowerCase()]
+        return rate ? { ...c, rateFromLKR: rate } : c
+      })
+
+      setCurrencies(updated)
+      setCurrency(prev => updated.find(c => c.code === prev.code) ?? prev)
+    } catch {
+      setRatesError(true)
+    } finally {
+      setRatesLoading(false)
+    }
+  }
+  fetchRates()
+}, [])
+
+  const handleCurrencyChange = (c: CurrencyConfig) => {
+    // Always pick from the live-updated list
+    setCurrency(currencies.find(x => x.code === c.code) ?? c)
+  }
+
   return (
     <CurrencyContext.Provider value={currency}>
       <div className="min-h-screen bg-background">
         <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-kingslake-100">
           <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
             <Logo />
-            <CurrencySelector value={currency} onChange={setCurrency} />
+            <div className="flex items-center gap-2">
+              {ratesLoading && (
+                <span className="text-xs text-muted-foreground animate-pulse">Fetching live rates…</span>
+              )}
+              {ratesError && (
+                <span className="text-xs text-amber-500" title="Using fallback rates from Mar 24, 2026">
+                  ⚠ Offline rates
+                </span>
+              )}
+              {!ratesLoading && !ratesError && (
+                <span className="text-xs text-emerald-500">● Live rates</span>
+              )}
+              <CurrencySelector
+                value={currency}
+                currencies={currencies}
+                onChange={handleCurrencyChange}
+              />
+            </div>
           </div>
         </header>
         <main>
