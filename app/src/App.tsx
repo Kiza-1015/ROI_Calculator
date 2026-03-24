@@ -1,4 +1,4 @@
-import { useState, useMemo, useContext, createContext, useEffect } from 'react'
+import { useState, useMemo, useContext, createContext, useEffect, useRef } from 'react'
 import './App.css'
 import { 
   Calculator, 
@@ -1653,12 +1653,22 @@ function CurrencySelector({
   onChange: (c: CurrencyConfig) => void
 }) {
   const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
 
-  // Find USD rate to calculate cross rates for display
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    if (open) document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open])
+
   const usdCurrency = currencies.find(c => c.code === 'USD')
 
   return (
-    <div className="relative">
+    <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(v => !v)}
         className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-kingslake-200 bg-white hover:bg-kingslake-50 text-sm font-medium text-kingslake-700 transition-colors"
@@ -1675,7 +1685,6 @@ function CurrencySelector({
           </div>
           <div className="p-1.5">
             {currencies.map(c => {
-              // Rate of this currency per 1 USD
               const rateVsUsd = usdCurrency
                 ? c.rateFromLKR / usdCurrency.rateFromLKR
                 : null
