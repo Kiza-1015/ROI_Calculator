@@ -1216,7 +1216,7 @@ function ParamRow({ param, onChange, onRemove }: { param: CustomParam; onChange:
   )
 }
 
-function StepRow({ step, paramVars, onChange, onRemove }: { step: CustomStep; paramVars: string[]; onChange: (s: CustomStep) => void; onRemove: () => void }) {
+function StepRow({ step, onChange, onRemove }: { step: CustomStep; onChange: (s: CustomStep) => void; onRemove: () => void }) {
   return (
     <div className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg bg-slate-50 border border-slate-100">
       <div className="col-span-3"><input className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-kingslake-400" placeholder="Step label" value={step.label} onChange={e => onChange({ ...step, label: e.target.value })} /></div>
@@ -1277,7 +1277,7 @@ function ModuleBuilder({ initial, onSave, onClose }: { initial?: CustomModule; o
               <div className="grid grid-cols-12 gap-2 px-2 text-xs font-medium text-slate-400 uppercase tracking-wide"><div className="col-span-3">Label</div><div className="col-span-4">Formula</div><div className="col-span-1">Unit</div><div className="col-span-2">Flags</div></div>
               {steps.map(s => (
                 <div key={s.id}>
-                  <StepRow step={s} paramVars={paramVars} onChange={updated => setSteps(prev => prev.map(x => x.id === s.id ? updated : x))} onRemove={() => setSteps(prev => prev.filter(x => x.id !== s.id))} />
+                  <StepRow step={s} onChange={updated => setSteps(prev => prev.map(x => x.id === s.id ? updated : x))} onRemove={() => setSteps(prev => prev.filter(x => x.id !== s.id))} />
                   {s.formula && <div className="text-xs ml-2 mt-0.5">{(() => { const r = evalFormula(s.formula, previewVars); return r !== null ? <span className="text-emerald-600">→ Preview: {formatNumber(r, 2)} {s.unit}</span> : <span className="text-rose-500">→ Formula error — check variable names</span> })()}</div>}
                 </div>
               ))}
