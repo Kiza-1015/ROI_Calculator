@@ -54,7 +54,6 @@ const CurrencyContext = createContext<CurrencyConfig>(CURRENCIES[0])
 const useCurrency = () => useContext(CurrencyContext)
 
 // ── Parameter definitions ─────────────────────────────────────────────────
-// TIME_PARAMS: these get 10% deducted before use in calculations
 const TIME_PARAMS = new Set([
   'studiesNoteDownTime',
   'timeToEnterStudyTimes',
@@ -67,7 +66,6 @@ const TIME_PARAMS = new Set([
 ])
 
 interface ROIParams {
-  // General Parameters
   workingDaysPerWeek: number
   numberOfLines: number
   numberOfIEOfficers: number
@@ -76,30 +74,22 @@ interface ROIParams {
   employeesPerLine: number
   employeeWorkingHours: number
   employeeAvgSalary: number
-  // Study App Parameters
   studiesNoteDownTime: number
   timeToEnterStudyTimes: number
-  // Absentee Balancing Parameters
   absenteeLinePercentage: number
   replaceEmployeesFindingTime: number
   rebalanceTime: number
-  // Capacity Balancing Parameters
   studyDataAnalysisTime: number
   rebalancingTimeCapacity: number
   capacityBalancingTimesPerMonth: number
-  // Reports Parameters
   reportQuantity: number
   reportDataAnalysisTime: number
   reportCreationTime: number
-  // Skill Matrix
   skillMatrixHoursPerMonth: number
-  // Factory Efficiency
   currentFactoryEfficiency: number
-  // Investment Cost
   costOfInvestmentPerMonth: number
 }
 
-// Apply 10% reduction to time parameters only
 function applyTimeReduction(params: ROIParams): ROIParams {
   const adjusted = { ...params }
   for (const key of TIME_PARAMS) {
@@ -109,30 +99,7 @@ function applyTimeReduction(params: ROIParams): ROIParams {
   return adjusted
 }
 
-interface EfficiencyScenario {
-  label: string
-  ieMultiplier: number   // salary multiplier for IE officers
-  empMultiplier: number  // salary multiplier for employees
-  description: string
-}
-
-const EFFICIENCY_SCENARIOS: EfficiencyScenario[] = [
-  {
-    label: '100% Excellent Officers',
-    ieMultiplier: 1.0,
-    empMultiplier: 1.0,
-    description: 'All IE officers performing at 100% — full salary base',
-  },
-  {
-    label: '50/50 Trainee / Excellent',
-    ieMultiplier: 0.75, // 50% excellent (100% sal) + 50% trainee (~50% sal) → avg 75%
-    empMultiplier: 1.0,
-    description: '50% excellent officers + 50% trainees (~50% salary) — blended rate',
-  },
-]
-
 interface ROICalculations {
-  // Study App
   studyAppTimeSavingPerLine: number
   studyAppLinesPerOfficer: number
   studyAppTimeSavingPerOfficer: number
@@ -145,7 +112,6 @@ interface ROICalculations {
   studyAppTotalCostPerOfficer: number
   studyAppTotalCostAllOfficers: number
   studyAppTotalBenefit: number
-  // Absentee Balancing
   absenteeAffectedLines: number
   absenteeRebalancingTimeSaving: number
   absenteeTotalTimeSavingPerLine: number
@@ -161,24 +127,20 @@ interface ROICalculations {
   absenteeIESavingCost: number
   absenteeEmployeeSavingCost: number
   absenteeTotalBenefit: number
-  // Capacity Balancing
   capacityTimeSavingPerLinePerDay: number
   capacityTimeSavingAllLinesPerDay: number
   capacityTimeSavingAllLinesPerMonth: number
   capacitySavedTimePercentage: number
   capacityTotalBenefit: number
-  // Reports
   reportsTimeSavingPerDay: number
   reportsTimeSavingPerMonth: number
   reportsSavedTimePercentage: number
   reportsTotalBenefit: number
-  // Factory-wide metrics
   totalEmployeeWorkHoursPerMonth: number
   totalIEWorkHoursPerMonth: number
   totalIECostPerHour: number
   totalEmployeeCostPerHour: number
   totalFactoryCostPerHour: number
-  // Totals
   totalBenefitHoursPerMonth: number
   totalBenefits: number
   totalBenefitCost: number
@@ -188,14 +150,12 @@ interface ROICalculations {
   paybackPeriod: number
 }
 
-function calculateROI(params: ROIParams, ieMultiplier = 1.0): ROICalculations {
-  // Apply 10% reduction to all time parameters
+function calculateROI(params: ROIParams): ROICalculations {
   const p = applyTimeReduction(params)
-
-  const effectiveIESalary = params.avgSalaryOfficer * ieMultiplier
+  const effectiveIESalary = params.avgSalaryOfficer
 
   // ── Study App ──────────────────────────────────────────────────────────
-  const studyAppTimeSavingPerLine = (p.studiesNoteDownTime + p.timeToEnterStudyTimes)
+  const studyAppTimeSavingPerLine = p.studiesNoteDownTime + p.timeToEnterStudyTimes
   const studyAppLinesPerOfficer = p.numberOfLines / p.numberOfIEOfficers
   const studyAppTimeSavingPerOfficer = studyAppTimeSavingPerLine * studyAppLinesPerOfficer
   const studyAppTotalTimeSavingPerDay = studyAppTimeSavingPerOfficer * p.numberOfIEOfficers
@@ -241,13 +201,9 @@ function calculateROI(params: ROIParams, ieMultiplier = 1.0): ROICalculations {
   // ── Factory-wide metrics ───────────────────────────────────────────────
   const totalEmployeeWorkHoursPerMonth = p.employeesPerLine * p.numberOfLines * p.employeeWorkingHours * 4
   const totalIEWorkHoursPerMonth = p.workingHoursPerWeekIE * 4 * p.numberOfIEOfficers
-
   const totalIECostPerHour = ((effectiveIESalary * 2) * p.numberOfIEOfficers) / totalIEWorkHoursPerMonth
   const totalEmployeeCostPerHour = ((p.employeeAvgSalary * 2) * p.employeesPerLine * p.numberOfLines) / totalEmployeeWorkHoursPerMonth
   const totalFactoryCostPerHour = totalIECostPerHour + totalEmployeeCostPerHour
-
-  // ── Skill Matrix ───────────────────────────────────────────────────────
-  const skillMatrixBenefitHours = p.skillMatrixHoursPerMonth
 
   // ── Total benefit hours ────────────────────────────────────────────────
   const totalBenefitHoursPerMonth =
@@ -255,7 +211,7 @@ function calculateROI(params: ROIParams, ieMultiplier = 1.0): ROICalculations {
     absenteeTotalTimePerMonth +
     capacityTimeSavingAllLinesPerMonth +
     reportsTimeSavingPerMonth +
-    skillMatrixBenefitHours
+    p.skillMatrixHoursPerMonth
 
   // ── Total benefits ─────────────────────────────────────────────────────
   const totalBenefits = studyAppTotalBenefit + absenteeTotalBenefit + capacityTotalBenefit + reportsTotalBenefit
@@ -266,7 +222,7 @@ function calculateROI(params: ROIParams, ieMultiplier = 1.0): ROICalculations {
   // ── Efficiency gain ────────────────────────────────────────────────────
   const totalFactoryHours = totalEmployeeWorkHoursPerMonth + totalIEWorkHoursPerMonth
   const efficiencyGain = params.currentFactoryEfficiency > 0
-    ? ((totalBenefitHoursPerMonth / totalFactoryHours) * 100)
+    ? (totalBenefitHoursPerMonth / totalFactoryHours) * 100
     : 0
 
   // ── ROI & payback ──────────────────────────────────────────────────────
@@ -289,7 +245,7 @@ function calculateROI(params: ROIParams, ieMultiplier = 1.0): ROICalculations {
     reportsTimeSavingPerDay, reportsTimeSavingPerMonth, reportsSavedTimePercentage, reportsTotalBenefit,
     totalEmployeeWorkHoursPerMonth, totalIEWorkHoursPerMonth,
     totalIECostPerHour, totalEmployeeCostPerHour, totalFactoryCostPerHour,
-    totalBenefitHoursPerMonth, totalBenefits, totalBenefitCost,totalFactoryHours,
+    totalBenefitHoursPerMonth, totalBenefits, totalBenefitCost, totalFactoryHours,
     efficiencyGain, roi, paybackPeriod,
   }
 }
@@ -427,9 +383,12 @@ function ResultCard({
     teal: 'from-teal-500 to-teal-400',
   }
   const trendMeta: Record<string, { color: string; icon: string }> = {
-    Poor: { color: '#dc2626', icon: '#ef4444' }, Low: { color: '#ea580c', icon: '#f97316' },
-    Moderate: { color: '#ca8a04', icon: '#eab308' }, Good: { color: '#16a34a', icon: '#22c55e' },
-    Strong: { color: '#059669', icon: '#10b981' }, Excellent: { color: '#4f46e5', icon: '#6366f1' },
+    Poor:      { color: '#dc2626', icon: '#ef4444' },
+    Low:       { color: '#ea580c', icon: '#f97316' },
+    Moderate:  { color: '#ca8a04', icon: '#eab308' },
+    Good:      { color: '#16a34a', icon: '#22c55e' },
+    Strong:    { color: '#059669', icon: '#10b981' },
+    Excellent: { color: '#4f46e5', icon: '#6366f1' },
   }
   const meta = trend ? trendMeta[trend] : null
   return (
@@ -555,7 +514,7 @@ function ModuleDetailCards({ calculations: c, params }: { calculations: ROICalcu
         <CalcStep label="Employee saving time %" value={c.absenteeSavingTimePercentage} unit="%" formula="(saving hrs ÷ working hrs × affected lines) × 100" />
         <CalcStep label="Labor cost per line" value={c.absenteeTotalLaborCostPerLine} formula="Sal_emp × Emp_line" isCurrency />
         <CalcStep label="Employee saving cost" value={c.absenteeEmployeeSavingCost} formula="labor cost × saving %" indent isCurrency />
-        <CalcStep label="IE saving time/month" value={c.absenteeIESavingTimePerMonth} unit="hrs" formula="(T_analysis×0.9 ÷ 60) × Cap_freq × 4" />
+        <CalcStep label="IE saving time/month" value={c.absenteeIESavingTimePerMonth} unit="hrs" formula="(T_analysis×0.8 ÷ 60) × Cap_freq × 4" />
         <CalcStep label="IE saving %" value={c.absenteeIESavingPercentage} unit="%" formula="(IE saving hrs ÷ W_hrs_officer×4) × 100" indent />
         <CalcStep label="IE saving cost" value={c.absenteeIESavingCost} formula="Sal_officer × IE saving %" indent isCurrency />
         <CalcStep label="Monthly Benefit" value={c.absenteeTotalBenefit} formula="IE saving cost + employee saving cost" isFinal isCurrency />
@@ -593,24 +552,24 @@ function ModuleDetailCards({ calculations: c, params }: { calculations: ROICalcu
 
 // ── Factory Efficiency Panel ──────────────────────────────────────────────
 function EfficiencyPanel({
-  c100, c50, params
+  calculations: c,
+  params
 }: {
-  c100: ROICalculations
-  c50: ROICalculations
+  calculations: ROICalculations
   params: ROIParams
 }) {
   const currency = useCurrency()
 
   const rows = [
-    { label: 'Total Employee Work Hours/Month', v100: c100.totalEmployeeWorkHoursPerMonth, v50: c50.totalEmployeeWorkHoursPerMonth, unit: 'hrs', isCurrency: false },
-    { label: 'Total IE Work Hours/Month', v100: c100.totalIEWorkHoursPerMonth, v50: c50.totalIEWorkHoursPerMonth, unit: 'hrs', isCurrency: false },
-    { label: 'IE Cost per Hour (all officers)', v100: c100.totalIECostPerHour, v50: c50.totalIECostPerHour, unit: '', isCurrency: true },
-    { label: 'Employee Cost per Hour (all employees)', v100: c100.totalEmployeeCostPerHour, v50: c50.totalEmployeeCostPerHour, unit: '', isCurrency: true },
-    { label: 'Total Factory Cost per Hour', v100: c100.totalFactoryCostPerHour, v50: c50.totalFactoryCostPerHour, unit: '', isCurrency: true },
-    { label: 'Total Benefit Hours/Month', v100: c100.totalBenefitHoursPerMonth, v50: c50.totalBenefitHoursPerMonth, unit: 'hrs', isCurrency: false },
-    { label: 'Total Benefit Cost', v100: c100.totalBenefitCost, v50: c50.totalBenefitCost, unit: '', isCurrency: true },
-    { label: 'Total Factory work hours/Month', v100: c100.totalFactoryHours, v50: c50.totalFactoryHours, unit: 'hrs', isCurrency: false },
-    { label: 'Efficiency Gain', v100: c100.efficiencyGain, v50: c50.efficiencyGain, unit: '%', isCurrency: false },
+    { label: 'Total Employee Work Hours/Month',        value: c.totalEmployeeWorkHoursPerMonth, unit: 'hrs', isCurrency: false },
+    { label: 'Total IE Work Hours/Month',              value: c.totalIEWorkHoursPerMonth,       unit: 'hrs', isCurrency: false },
+    { label: 'IE Cost per Hour (all officers)',         value: c.totalIECostPerHour,             unit: '',    isCurrency: true  },
+    { label: 'Employee Cost per Hour (all employees)', value: c.totalEmployeeCostPerHour,       unit: '',    isCurrency: true  },
+    { label: 'Total Factory Cost per Hour',            value: c.totalFactoryCostPerHour,        unit: '',    isCurrency: true  },
+    { label: 'Total Benefit Hours/Month',              value: c.totalBenefitHoursPerMonth,      unit: 'hrs', isCurrency: false },
+    { label: 'Total Benefit Cost',                     value: c.totalBenefitCost,               unit: '',    isCurrency: true  },
+    { label: 'Total Factory Work Hours/Month',         value: c.totalFactoryHours,              unit: 'hrs', isCurrency: false },
+    { label: 'Efficiency Gain',                        value: c.efficiencyGain,                 unit: '%',   isCurrency: false },
   ]
 
   const fmt = (v: number, isCurrency: boolean, unit: string) =>
@@ -628,146 +587,48 @@ function EfficiencyPanel({
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
-        {/* Header row */}
-        <div className="grid grid-cols-3 gap-0 bg-slate-50 border-b border-slate-200 px-4 py-2">
+        <div className="grid grid-cols-2 gap-0 bg-slate-50 border-b border-slate-200 px-4 py-2">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Metric</div>
           <div className="text-xs font-semibold text-blue-600 uppercase tracking-wide text-right flex items-center justify-end gap-1">
-            <Award className="w-3 h-3" /> 100% Excellent
-          </div>
-          <div className="text-xs font-semibold text-amber-600 uppercase tracking-wide text-right flex items-center justify-end gap-1">
-            <Users className="w-3 h-3" /> 50/50 Mix
+            <Award className="w-3 h-3" /> Value
           </div>
         </div>
         {rows.map((row, i) => (
-          <div key={i} className={`grid grid-cols-3 gap-0 px-4 py-3 border-b border-slate-100 ${row.label === 'Efficiency Gain' ? 'bg-emerald-50' : ''}`}>
+          <div key={i} className={`grid grid-cols-2 gap-0 px-4 py-3 border-b border-slate-100 ${row.label === 'Efficiency Gain' ? 'bg-emerald-50' : ''}`}>
             <div className={`text-sm ${row.label === 'Efficiency Gain' || row.label === 'Total Benefit Cost' ? 'font-semibold text-slate-700' : 'text-slate-600'}`}>
               {row.label}
-              {row.label === 'Efficiency Gain' && (
-                <div className="text-xs text-slate-400 font-normal mt-0.5 font-mono">
-                  [(empHrs+IEhrs)/eff%] × benefitHrs × 100 / totalHrs
-                </div>
-              )}
             </div>
             <div className={`text-sm font-semibold text-right ${row.label === 'Efficiency Gain' ? 'text-emerald-700 text-base' : 'text-slate-800'}`}>
-              {fmt(row.v100, row.isCurrency, row.unit)}
+              {fmt(row.value, row.isCurrency, row.unit)}
               {row.label === 'Efficiency Gain' && (
                 <div className="text-xs font-normal text-emerald-600 mt-0.5">
-                  +{formatNumber(row.v100, 2)}% gain
-                </div>
-              )}
-            </div>
-            <div className={`text-sm font-semibold text-right ${row.label === 'Efficiency Gain' ? 'text-amber-700 text-base' : 'text-slate-800'}`}>
-              {fmt(row.v50, row.isCurrency, row.unit)}
-              {row.label === 'Efficiency Gain' && (
-                <div className="text-xs font-normal text-amber-600 mt-0.5">
-                  +{formatNumber(row.v50, 2)}% gain
+                  +{formatNumber(row.value, 2)}% gain
                 </div>
               )}
             </div>
           </div>
         ))}
 
-        {/* Scenario notes */}
-        <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50">
-          {EFFICIENCY_SCENARIOS.map((s, i) => (
-            <div key={i} className={`rounded-lg p-3 border ${i === 0 ? 'border-blue-200 bg-blue-50' : 'border-amber-200 bg-amber-50'}`}>
-              <p className={`text-xs font-semibold ${i === 0 ? 'text-blue-700' : 'text-amber-700'} mb-1 flex items-center gap-1`}>
-                {i === 0 ? <Award className="w-3 h-3" /> : <Users className="w-3 h-3" />}
-                {s.label}
-              </p>
-              <p className="text-xs text-slate-500">{s.description}</p>
-            </div>
-          ))}
+        {/* Efficiency gauge */}
+        <div className="p-4 bg-slate-50">
+          <div className="flex justify-between text-xs text-slate-400 mb-1">
+            <span>Current: {params.currentFactoryEfficiency}%</span>
+            <span>After: {formatNumber(Math.min(100, params.currentFactoryEfficiency + c.efficiencyGain), 1)}%</span>
+          </div>
+          <div className="h-3 rounded-full bg-slate-200 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-teal-400 to-emerald-500 transition-all duration-700"
+              style={{ width: `${Math.min(100, params.currentFactoryEfficiency + c.efficiencyGain)}%` }}
+            />
+          </div>
         </div>
       </CardContent>
     </Card>
   )
 }
 
-// ── Efficiency gain highlight cards ──────────────────────────────────────
-function EfficiencyGainCards({ c100, c50, params }: { c100: ROICalculations; c50: ROICalculations; params: ROIParams }) {
-  const currency = useCurrency()
-  return (
-    <div className="grid grid-cols-2 gap-4">
-      {/* 100% scenario */}
-      <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-400 flex items-center justify-center">
-              <Award className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-sm font-semibold text-blue-700">100% Excellent Officers</span>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500">Benefit Cost/Month</span>
-              <span className="font-bold text-slate-800">{formatCurrency(c100.totalBenefitCost, currency)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500">Efficiency Gain</span>
-              <span className="font-bold text-blue-700 text-base">+{formatNumber(c100.efficiencyGain, 2)}%</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500">ROI</span>
-              <span className="font-bold text-emerald-600">{formatNumber(c100.roi, 0)}%</span>
-            </div>
-          </div>
-          {/* mini gauge */}
-          <div className="mt-3">
-            <div className="flex justify-between text-xs text-slate-400 mb-1">
-              <span>Current: {params.currentFactoryEfficiency}%</span>
-              <span>After: {formatNumber(Math.min(100, params.currentFactoryEfficiency + c100.efficiencyGain), 1)}%</span>
-            </div>
-            <div className="h-2.5 rounded-full bg-slate-200 overflow-hidden">
-              <div className="h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-700"
-                style={{ width: `${Math.min(100, params.currentFactoryEfficiency + c100.efficiencyGain)}%` }} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 50/50 scenario */}
-      <Card className="border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-white">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-amber-400 flex items-center justify-center">
-              <Users className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-sm font-semibold text-amber-700">50/50 Trainee / Excellent</span>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500">Benefit Cost/Month</span>
-              <span className="font-bold text-slate-800">{formatCurrency(c50.totalBenefitCost, currency)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500">Efficiency Gain</span>
-              <span className="font-bold text-amber-700 text-base">+{formatNumber(c50.efficiencyGain, 2)}%</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500">ROI</span>
-              <span className="font-bold text-emerald-600">{formatNumber(c50.roi, 0)}%</span>
-            </div>
-          </div>
-          {/* mini gauge */}
-          <div className="mt-3">
-            <div className="flex justify-between text-xs text-slate-400 mb-1">
-              <span>Current: {params.currentFactoryEfficiency}%</span>
-              <span>After: {formatNumber(Math.min(100, params.currentFactoryEfficiency + c50.efficiencyGain), 1)}%</span>
-            </div>
-            <div className="h-2.5 rounded-full bg-slate-200 overflow-hidden">
-              <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-600 transition-all duration-700"
-                style={{ width: `${Math.min(100, params.currentFactoryEfficiency + c50.efficiencyGain)}%` }} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
-// CUSTOM MODULE SYSTEM (unchanged from original)
+// CUSTOM MODULE SYSTEM
 // ═══════════════════════════════════════════════════════════════════════════
 
 type ParamType = 'time' | 'cost' | 'count' | 'percent'
@@ -785,19 +646,19 @@ interface CustomModule {
 }
 
 const MODULE_COLORS = [
-  { label: 'Teal', from: 'from-teal-500', to: 'to-teal-400' },
-  { label: 'Rose', from: 'from-rose-500', to: 'to-rose-400' },
-  { label: 'Indigo', from: 'from-indigo-500', to: 'to-indigo-400' },
-  { label: 'Amber', from: 'from-amber-500', to: 'to-amber-400' },
-  { label: 'Cyan', from: 'from-cyan-500', to: 'to-cyan-400' },
-  { label: 'Pink', from: 'from-pink-500', to: 'to-pink-400' },
+  { label: 'Teal',   from: 'from-teal-500',   to: 'to-teal-400'   },
+  { label: 'Rose',   from: 'from-rose-500',    to: 'to-rose-400'   },
+  { label: 'Indigo', from: 'from-indigo-500',  to: 'to-indigo-400' },
+  { label: 'Amber',  from: 'from-amber-500',   to: 'to-amber-400'  },
+  { label: 'Cyan',   from: 'from-cyan-500',    to: 'to-cyan-400'   },
+  { label: 'Pink',   from: 'from-pink-500',    to: 'to-pink-400'   },
 ]
 
 const PARAM_TYPE_META: Record<ParamType, { label: string; defaultUnit: string }> = {
-  time: { label: 'Time', defaultUnit: 'min' },
-  cost: { label: 'Cost (LKR)', defaultUnit: 'LKR' },
-  count: { label: 'Count', defaultUnit: 'units' },
-  percent: { label: 'Percentage', defaultUnit: '%' },
+  time:    { label: 'Time',       defaultUnit: 'min'   },
+  cost:    { label: 'Cost (LKR)', defaultUnit: 'LKR'   },
+  count:   { label: 'Count',      defaultUnit: 'units' },
+  percent: { label: 'Percentage', defaultUnit: '%'     },
 }
 
 const STORAGE_KEY = 'klb_custom_modules_v1'
@@ -834,12 +695,7 @@ function ROICalculator() {
   const [builderOpen, setBuilderOpen] = useState(false)
   const [editingModule, setEditingModule] = useState<CustomModule | undefined>()
 
-  // Two scenarios: 100% excellent, 50/50 mix
-  const calc100 = useMemo(() => calculateROI(params, 1.0), [params])
-  const calc50  = useMemo(() => calculateROI(params, 0.75), [params])
-
-  // Use 100% scenario as primary display
-  const calculations = calc100
+  const calculations = useMemo(() => calculateROI(params), [params])
 
   const customTotal = useMemo(() => customModules.reduce((sum, m) => {
     const vars = Object.fromEntries(m.params.map(p => [p.variable, p.value]))
@@ -897,25 +753,45 @@ function ROICalculator() {
                     <InputField label="Number of Production Lines" value={params.numberOfLines} onChange={v => updateParam('numberOfLines', v)} unit="lines" icon={LayoutDashboard} />
                     <InputField label="Number of IE Officers" value={params.numberOfIEOfficers} onChange={v => updateParam('numberOfIEOfficers', v)} unit="officers" icon={Users} />
                     <InputField label="IE Officer Working Hours/Week" value={params.workingHoursPerWeekIE} onChange={v => updateParam('workingHoursPerWeekIE', v)} unit="hours" icon={Clock} />
-                    <InputField label="Avg. IE Officer Salary" value={lkrToDisplay(params.avgSalaryOfficer, currency)} onChange={v => updateParam('avgSalaryOfficer', displayToLkr(v, currency))} unit={`${currency.code}/mo`} icon={DollarSign} step={Math.max(1, Math.round(lkrToDisplay(1000, currency)))} />
+                    <InputField
+                      label="Avg. IE Officer Salary"
+                      value={lkrToDisplay(params.avgSalaryOfficer, currency)}
+                      onChange={v => updateParam('avgSalaryOfficer', displayToLkr(v, currency))}
+                      unit={`${currency.code}/mo`}
+                      icon={DollarSign}
+                      step={Math.max(1, Math.round(lkrToDisplay(1000, currency)))}
+                    />
                     <Separator />
                     <p className="text-sm font-medium text-kingslake-600 flex items-center gap-2">
                       <Users className="w-4 h-4" /> Employees
                     </p>
                     <InputField label="Employees per Line" value={params.employeesPerLine} onChange={v => updateParam('employeesPerLine', v)} unit="employees" icon={Users} />
                     <InputField label="Employee Working Hours/Week" value={params.employeeWorkingHours} onChange={v => updateParam('employeeWorkingHours', v)} unit="hours" icon={Clock} />
-                    <InputField label="Employee Avg. Salary" value={lkrToDisplay(params.employeeAvgSalary, currency)} onChange={v => updateParam('employeeAvgSalary', displayToLkr(v, currency))} unit={`${currency.code}/mo`} icon={DollarSign} step={Math.max(1, Math.round(lkrToDisplay(1000, currency)))} />
+                    <InputField
+                      label="Employee Avg. Salary"
+                      value={lkrToDisplay(params.employeeAvgSalary, currency)}
+                      onChange={v => updateParam('employeeAvgSalary', displayToLkr(v, currency))}
+                      unit={`${currency.code}/mo`}
+                      icon={DollarSign}
+                      step={Math.max(1, Math.round(lkrToDisplay(1000, currency)))}
+                    />
                     <Separator />
                     <p className="text-sm font-medium text-kingslake-600 flex items-center gap-2">
                       <Target className="w-4 h-4" /> Factory Efficiency
                     </p>
                     <InputField label="Current Factory Efficiency" value={params.currentFactoryEfficiency} onChange={v => updateParam('currentFactoryEfficiency', Math.min(100, Math.max(1, v)))} unit="%" icon={TrendingUp} min={1} step={1} />
                     <Separator />
-                    <InputField label="Investment Cost per Month" value={lkrToDisplay(params.costOfInvestmentPerMonth, currency)} onChange={v => updateParam('costOfInvestmentPerMonth', displayToLkr(v, currency))} unit={`${currency.code}/mo`} icon={DollarSign} step={Math.max(1, Math.round(lkrToDisplay(1000, currency)))} />
+                    <InputField
+                      label="Investment Cost per Month"
+                      value={lkrToDisplay(params.costOfInvestmentPerMonth, currency)}
+                      onChange={v => updateParam('costOfInvestmentPerMonth', displayToLkr(v, currency))}
+                      unit={`${currency.code}/mo`}
+                      icon={DollarSign}
+                      step={Math.max(1, Math.round(lkrToDisplay(1000, currency)))}
+                    />
                   </TabsContent>
 
                   <TabsContent value="modules" className="space-y-4">
-                    {/* Study App */}
                     <div className="space-y-3">
                       <p className="text-sm font-medium text-kingslake-600 flex items-center gap-2">
                         <FileText className="w-4 h-4" /> Study App
@@ -924,7 +800,6 @@ function ROICalculator() {
                       <InputField label="Time to Enter Study Data" value={params.timeToEnterStudyTimes} onChange={v => updateParam('timeToEnterStudyTimes', v)} unit="min" />
                     </div>
                     <Separator className="my-4" />
-                    {/* Absentee Balancing */}
                     <div className="space-y-3">
                       <p className="text-sm font-medium text-kingslake-600 flex items-center gap-2">
                         <Users className="w-4 h-4" /> Absentee Balancing
@@ -934,7 +809,6 @@ function ROICalculator() {
                       <InputField label="Rebalance Time" value={params.rebalanceTime} onChange={v => updateParam('rebalanceTime', v)} unit="min" />
                     </div>
                     <Separator className="my-4" />
-                    {/* Capacity Balancing */}
                     <div className="space-y-3">
                       <p className="text-sm font-medium text-kingslake-600 flex items-center gap-2">
                         <BarChart3 className="w-4 h-4" /> Capacity Balancing
@@ -944,7 +818,6 @@ function ROICalculator() {
                       <InputField label="Balancing Times per Month" value={params.capacityBalancingTimesPerMonth} onChange={v => updateParam('capacityBalancingTimesPerMonth', v)} unit="times" />
                     </div>
                     <Separator className="my-4" />
-                    {/* Reports */}
                     <div className="space-y-3">
                       <p className="text-sm font-medium text-kingslake-600 flex items-center gap-2">
                         <PieChart className="w-4 h-4" /> Reports
@@ -954,7 +827,6 @@ function ROICalculator() {
                       <InputField label="Report Creation Time" value={params.reportCreationTime} onChange={v => updateParam('reportCreationTime', v)} unit="min" />
                     </div>
                     <Separator className="my-4" />
-                    {/* Skill Matrix */}
                     <div className="space-y-3">
                       <p className="text-sm font-medium text-teal-600 flex items-center gap-2">
                         <Award className="w-4 h-4" /> Skill Matrix
@@ -983,12 +855,18 @@ function ROICalculator() {
                                   }} className="text-slate-300 hover:text-rose-500 transition-colors text-base leading-none ml-2">×</button>
                                 </Label>
                                 <div className="relative">
-                                  <Input type="number" value={p.value}
+                                  <Input
+                                    type="number"
+                                    value={p.type === 'cost' ? lkrToDisplay(p.value, currency) : p.value}
                                     onChange={e => {
-                                      const updated = { ...m, params: m.params.map(x => x.id === p.id ? { ...x, value: parseFloat(e.target.value) || 0 } : x) }
+                                      const raw = parseFloat(e.target.value) || 0
+                                      const stored = p.type === 'cost' ? displayToLkr(raw, currency) : raw
+                                      const updated = { ...m, params: m.params.map(x => x.id === p.id ? { ...x, value: stored } : x) }
                                       saveModules(customModules.map(x => x.id === m.id ? updated : x))
                                     }}
-                                    step={p.type === 'cost' ? 1000 : 1} className="input-kingslake pr-16" />
+                                    step={p.type === 'cost' ? Math.max(1, Math.round(lkrToDisplay(1000, currency))) : 1}
+                                    className="input-kingslake pr-16"
+                                  />
                                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                                     {p.type === 'cost' ? `${currency.code}` : p.unit}
                                   </span>
@@ -1007,12 +885,11 @@ function ROICalculator() {
 
           {/* Results Panel */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Primary KPI cards */}
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
               <ResultCard
                 title="Total Monthly Benefit Cost"
                 value={formatCurrency(grandTotal, currency)}
-                subtitle="100% excellent scenario"
+                subtitle="Based on factory cost/hr"
                 icon={DollarSign}
                 color="green"
               />
@@ -1046,19 +923,50 @@ function ROICalculator() {
               />
             </div>
 
-            {/* Efficiency gain highlight cards */}
+            {/* Efficiency gain highlight card */}
             <div>
               <h3 className="text-base font-semibold text-slate-700 flex items-center gap-2 mb-3">
                 <Zap className="w-4 h-4 text-emerald-500" />
-                Efficiency Gain by Officer Scenario
+                Efficiency Gain
               </h3>
-              <EfficiencyGainCards c100={calc100} c50={calc50} params={params} />
+              <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-400 flex items-center justify-center">
+                      <Award className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-sm font-semibold text-blue-700">100% Excellent IE Officers</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-slate-500">Benefit Cost/Month</span>
+                      <span className="font-bold text-slate-800 text-sm">{formatCurrency(calculations.totalBenefitCost, currency)}</span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-slate-500">Efficiency Gain</span>
+                      <span className="font-bold text-blue-700 text-base">+{formatNumber(calculations.efficiencyGain, 2)}%</span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-slate-500">ROI</span>
+                      <span className="font-bold text-emerald-600 text-sm">{formatNumber(calculations.roi, 0)}%</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-xs text-slate-400 mb-1">
+                    <span>Current: {params.currentFactoryEfficiency}%</span>
+                    <span>After: {formatNumber(Math.min(100, params.currentFactoryEfficiency + calculations.efficiencyGain), 1)}%</span>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-slate-200 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-700"
+                      style={{ width: `${Math.min(100, params.currentFactoryEfficiency + calculations.efficiencyGain)}%` }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
-            {/* Module cards */}
             <ModuleDetailCards calculations={calculations} params={params} />
 
-            {/* Custom modules */}
             <CustomModulesSection
               modules={customModules}
               onAdd={() => { setEditingModule(undefined); setBuilderOpen(true) }}
@@ -1067,10 +975,8 @@ function ROICalculator() {
               onUpdateModule={(m) => saveModules(customModules.map(x => x.id === m.id ? m : x))}
             />
 
-            {/* Detailed efficiency table */}
-            <EfficiencyPanel c100={calc100} c50={calc50} params={params} />
+            <EfficiencyPanel calculations={calculations} params={params} />
 
-            {/* Benefits breakdown bar chart */}
             <Card className="bg-gradient-to-br from-kingslake-900 to-kingslake-800 text-white">
               <CardContent className="p-6">
                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -1079,11 +985,11 @@ function ROICalculator() {
                 </h3>
                 <div className="space-y-4">
                   {[
-                    { label: 'Study App', value: calculations.studyAppTotalBenefit, dot: 'bg-kingslake-400' },
-                    { label: 'Absentee Balancing', value: calculations.absenteeTotalBenefit, dot: 'bg-violet-400' },
-                    { label: 'Capacity Balancing', value: calculations.capacityTotalBenefit, dot: 'bg-orange-400' },
-                    { label: 'Automated Reports', value: calculations.reportsTotalBenefit, dot: 'bg-emerald-400' },
-                    { label: 'Skill Matrix', value: calculations.totalFactoryCostPerHour * params.skillMatrixHoursPerMonth, dot: 'bg-teal-400' },
+                    { label: 'Study App',          value: calculations.studyAppTotalBenefit,   dot: 'bg-kingslake-400' },
+                    { label: 'Absentee Balancing',  value: calculations.absenteeTotalBenefit,   dot: 'bg-violet-400'   },
+                    { label: 'Capacity Balancing',  value: calculations.capacityTotalBenefit,   dot: 'bg-orange-400'   },
+                    { label: 'Automated Reports',   value: calculations.reportsTotalBenefit,    dot: 'bg-emerald-400'  },
+                    { label: 'Skill Matrix',        value: calculations.totalFactoryCostPerHour * params.skillMatrixHoursPerMonth, dot: 'bg-teal-400' },
                     ...customModules.map((m, i) => {
                       const vars = Object.fromEntries(m.params.map(p => [p.variable, p.value]))
                       const finalStep = [...m.steps].reverse().find(s => s.isFinal)
@@ -1202,7 +1108,7 @@ function Footer() {
   )
 }
 
-// ── Custom module builder (unchanged) ─────────────────────────────────────
+// ── Custom module builder ─────────────────────────────────────────────────
 function ParamRow({ param, onChange, onRemove }: { param: CustomParam; onChange: (p: CustomParam) => void; onRemove: () => void }) {
   return (
     <div className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg bg-slate-50 border border-slate-100">
@@ -1299,6 +1205,7 @@ function ModuleBuilder({ initial, onSave, onClose }: { initial?: CustomModule; o
 function CustomModuleCard({ module, onEdit, onDelete, onUpdateModule }: {
   module: CustomModule; onEdit: () => void; onDelete: () => void; onUpdateModule: (m: CustomModule) => void
 }) {
+  const currency = useCurrency()
   const [gradFrom, gradTo] = module.color.split(' ')
   const [localParams, setLocalParams] = useState(module.params)
   const updateParamValue = (id: string, value: number) => {
@@ -1321,8 +1228,18 @@ function CustomModuleCard({ module, onEdit, onDelete, onUpdateModule }: {
           <div key={p.id} className="flex items-center justify-between gap-2">
             <span className="text-xs text-slate-600 flex-1 truncate">{p.name}</span>
             <div className="flex items-center gap-1 shrink-0">
-              <input type="number" className="w-20 text-xs border border-slate-200 rounded px-2 py-1 text-right focus:outline-none focus:border-kingslake-400" value={p.value} onChange={e => updateParamValue(p.id, parseFloat(e.target.value) || 0)} />
-              <span className="text-xs text-slate-400 w-8">{p.unit}</span>
+              <input
+                type="number"
+                className="w-20 text-xs border border-slate-200 rounded px-2 py-1 text-right focus:outline-none focus:border-kingslake-400"
+                value={p.type === 'cost' ? lkrToDisplay(p.value, currency) : p.value}
+                onChange={e => {
+                  const raw = parseFloat(e.target.value) || 0
+                  const stored = p.type === 'cost' ? displayToLkr(raw, currency) : raw
+                  updateParamValue(p.id, stored)
+                }}
+                step={p.type === 'cost' ? Math.max(1, Math.round(lkrToDisplay(1000, currency))) : 1}
+              />
+              <span className="text-xs text-slate-400 w-8">{p.type === 'cost' ? currency.code : p.unit}</span>
               <button onClick={() => removeParam(p.id)} className="w-5 h-5 flex items-center justify-center rounded text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors text-base leading-none">×</button>
             </div>
           </div>
