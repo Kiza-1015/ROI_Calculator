@@ -146,6 +146,7 @@ interface ROICalculations {
   totalBenefitCost: number
   efficiencyGain: number
   totalFactoryHours: number
+  totalFactoryCostPerMonth: number
   roi: number
   paybackPeriod: number
 }
@@ -205,6 +206,8 @@ function calculateROI(params: ROIParams): ROICalculations {
   const totalEmployeeCostPerHour = ((p.employeeAvgSalary * 2) * p.employeesPerLine * p.numberOfLines) / totalEmployeeWorkHoursPerMonth
   const totalFactoryCostPerHour = totalIECostPerHour + totalEmployeeCostPerHour
 
+  const totalFactoryCostPerMonth = totalFactoryCostPerHour * (totalEmployeeWorkHoursPerMonth + totalIEWorkHoursPerMonth)
+
   // ── Total benefit hours ────────────────────────────────────────────────
   const totalBenefitHoursPerMonth =
     studyAppTotalTimeSavingHoursPerMonth +
@@ -245,7 +248,7 @@ function calculateROI(params: ROIParams): ROICalculations {
     reportsTimeSavingPerDay, reportsTimeSavingPerMonth, reportsSavedTimePercentage, reportsTotalBenefit,
     totalEmployeeWorkHoursPerMonth, totalIEWorkHoursPerMonth,
     totalIECostPerHour, totalEmployeeCostPerHour, totalFactoryCostPerHour,
-    totalBenefitHoursPerMonth, totalBenefits, totalBenefitCost, totalFactoryHours,
+    totalBenefitHoursPerMonth, totalBenefits, totalBenefitCost, totalFactoryHours, totalFactoryCostPerMonth,
     efficiencyGain, roi, paybackPeriod,
   }
 }
@@ -299,7 +302,7 @@ const defaultParams: ROIParams = {
 function Logo() {
   return (
     <div className="flex items-center gap-3">
-      <img src="/logo.png" alt="KingsLakeBlue logo" width={2000} height={600} className="h-10 w-auto rounded-lg" />
+      <img src="/logo.png" alt="KingslakeBlue logo" width={2000} height={600} className="h-10 w-auto rounded-lg" />
     </div>
   )
 }
@@ -325,7 +328,7 @@ function HeroSection() {
           <span className="text-foreground">Production Line Efficiency <br />up to 10%</span>
         </h1>
         <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-          Calculate the return on investment for KingsLakeBlue's AI-powered Line Balancing solution. See how much time and money you can save across Capacity Planning, Time Study Management, Absentee Balancing, and Automated Reporting.
+          Calculate the return on investment for KingslakeBlue's AI-powered Line Balancing solution. See how much time and money you can save across Capacity Planning, Time Study Management, Absentee Balancing, and Automated Reporting.
         </p>
         <div className="flex flex-wrap justify-center gap-4">
           {['Real-time Calculations', 'Customizable Parameters', 'Detailed Analytics'].map(t => (
@@ -567,8 +570,8 @@ function EfficiencyPanel({
     { label: 'Employee Cost per Hour (all employees)', value: c.totalEmployeeCostPerHour,       unit: '',    isCurrency: true  },
     { label: 'Total Factory Cost per Hour',            value: c.totalFactoryCostPerHour,        unit: '',    isCurrency: true  },
     { label: 'Total Benefit Hours/Month',              value: c.totalBenefitHoursPerMonth,      unit: 'hrs', isCurrency: false },
-    { label: 'Total Benefit Cost',                     value: c.totalBenefitCost,               unit: '',    isCurrency: true  },
     { label: 'Total Factory Work Hours/Month',         value: c.totalFactoryHours,              unit: 'hrs', isCurrency: false },
+    { label: 'Total Factory Cost',                     value: c.totalFactoryCostPerMonth,       unit: '',    isCurrency: true  },
     { label: 'Efficiency Gain',                        value: c.efficiencyGain,                 unit: '%',   isCurrency: false },
   ]
 
@@ -595,7 +598,7 @@ function EfficiencyPanel({
         </div>
         {rows.map((row, i) => (
           <div key={i} className={`grid grid-cols-2 gap-0 px-4 py-3 border-b border-slate-100 ${row.label === 'Efficiency Gain' ? 'bg-emerald-50' : ''}`}>
-            <div className={`text-sm ${row.label === 'Efficiency Gain' || row.label === 'Total Benefit Cost' ? 'font-semibold text-slate-700' : 'text-slate-600'}`}>
+            <div className={`text-sm ${row.label === 'Efficiency Gain' || row.label === 'Total Factory Cost' ? 'font-semibold text-slate-700' : 'text-slate-600'}`}>
               {row.label}
             </div>
             <div className={`text-sm font-semibold text-right ${row.label === 'Efficiency Gain' ? 'text-emerald-700 text-base' : 'text-slate-800'}`}>
@@ -796,15 +799,15 @@ function ROICalculator() {
                       <p className="text-sm font-medium text-kingslake-600 flex items-center gap-2">
                         <FileText className="w-4 h-4" /> Study App
                       </p>
-                      <InputField label="Studies Note Down Time" value={params.studiesNoteDownTime} onChange={v => updateParam('studiesNoteDownTime', v)} unit="min" />
-                      <InputField label="Time to Enter Study Data" value={params.timeToEnterStudyTimes} onChange={v => updateParam('timeToEnterStudyTimes', v)} unit="min" />
+                      <InputField label="Studies Note Down Time (With the study taking time)" value={params.studiesNoteDownTime} onChange={v => updateParam('studiesNoteDownTime', v)} unit="min" />
+                      <InputField label="Time to Enter Study Data (To The Excel)" value={params.timeToEnterStudyTimes} onChange={v => updateParam('timeToEnterStudyTimes', v)} unit="min" />
                     </div>
                     <Separator className="my-4" />
                     <div className="space-y-3">
                       <p className="text-sm font-medium text-kingslake-600 flex items-center gap-2">
                         <Users className="w-4 h-4" /> Absentee Balancing
                       </p>
-                      <InputField label="Absent Line Percentage" value={params.absenteeLinePercentage} onChange={v => updateParam('absenteeLinePercentage', v)} unit="%" min={0} step={1} />
+                      <InputField label="Absent Line Percentage (Whole Factory)" value={params.absenteeLinePercentage} onChange={v => updateParam('absenteeLinePercentage', v)} unit="%" min={0} step={1} />
                       <InputField label="Find Replacement Time" value={params.replaceEmployeesFindingTime} onChange={v => updateParam('replaceEmployeesFindingTime', v)} unit="min" />
                       <InputField label="Rebalance Time" value={params.rebalanceTime} onChange={v => updateParam('rebalanceTime', v)} unit="min" />
                     </div>
@@ -887,7 +890,7 @@ function ROICalculator() {
           <div className="lg:col-span-2 space-y-6">
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
               <ResultCard
-                title="Total Monthly Benefit Cost"
+                title="Total Monthly Benefit"
                 value={formatCurrency(grandTotal, currency)}
                 subtitle="Based on factory cost/hr"
                 icon={DollarSign}
@@ -917,7 +920,7 @@ function ROICalculator() {
               <ResultCard
                 title="Monthly Investment"
                 value={formatCurrency(params.costOfInvestmentPerMonth, currency)}
-                subtitle="KingsLakeBlue solution cost"
+                subtitle="KingslakeBlue solution cost"
                 icon={Briefcase}
                 color="orange"
               />
@@ -939,8 +942,8 @@ function ROICalculator() {
                   </div>
                   <div className="grid grid-cols-3 gap-4 mb-4">
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs text-slate-500">Benefit Cost/Month</span>
-                      <span className="font-bold text-slate-800 text-sm">{formatCurrency(calculations.totalBenefitCost, currency)}</span>
+                      <span className="text-xs text-slate-500">Total Factory Cost/Month</span>
+                      <span className="font-bold text-slate-800 text-sm">{formatCurrency(calculations.totalFactoryCostPerMonth, currency)}</span>
                     </div>
                     <div className="flex flex-col gap-1">
                       <span className="text-xs text-slate-500">Efficiency Gain</span>
@@ -1054,7 +1057,7 @@ function FeaturesSection() {
     <section className="py-16 px-4 bg-gradient-to-b from-white to-kingslake-50">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-foreground mb-4">KingsLakeBlue Solutions</h2>
+          <h2 className="text-3xl font-bold text-foreground mb-4">KingslakeBlue Solutions</h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
             Our comprehensive suite of production management tools designed to maximize efficiency and minimize waste.
           </p>
@@ -1094,14 +1097,14 @@ function Footer() {
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="relative rounded-lg p-1 filter drop-shadow-[0_0_18px_rgba(255,255,255,0.85)]">
-            <img src="/logo.png" alt="KingsLakeBlue logo" width={2000} height={600} className="h-10 w-auto object-contain rounded-md" />
+            <img src="/logo.png" alt="KingslakeBlue logo" width={2000} height={600} className="h-10 w-auto object-contain rounded-md" />
           </div>
           <div className="flex items-center gap-6 text-sm text-kingslake-300">
             {['About', 'Features', 'Contact', 'Privacy'].map(l => (
               <a key={l} href="#" className="hover:text-white transition-colors">{l}</a>
             ))}
           </div>
-          <p className="text-sm text-kingslake-400">© 2026 KingsLakeBlue. All rights reserved.</p>
+          <p className="text-sm text-kingslake-400">© 2026 KingslakeBlue. All rights reserved.</p>
         </div>
       </div>
     </footer>
