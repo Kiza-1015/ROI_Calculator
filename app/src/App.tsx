@@ -302,7 +302,7 @@ const defaultParams: ROIParams = {
 function Logo() {
   return (
     <div className="flex items-center gap-3">
-      <img src="/logo.png" alt="KingslakeBlue logo" width={2000} height={600} className="h-10 w-auto rounded-lg" />
+      <img src="https://kingslakeblue.com/roi/logo.png" alt="KingslakeBlue logo" width={2000} height={600} className="h-10 w-auto rounded-lg" />
     </div>
   )
 }
