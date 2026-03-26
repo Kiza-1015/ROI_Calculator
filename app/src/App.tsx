@@ -1096,12 +1096,17 @@ function Footer() {
     <footer className="py-12 px-4 bg-kingslake-950 text-white">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="relative rounded-lg p-1 filter drop-shadow-[0_0_18px_rgba(255,255,255,0.85)]">
+          {/* <div className="relative rounded-lg p-1 filter drop-shadow-[0_0_18px_rgba(255,255,255,0.85)]">
             <img src="/logo.png" alt="KingslakeBlue logo" width={2000} height={600} className="h-10 w-auto object-contain rounded-md" />
-          </div>
+          </div> */}
           <div className="flex items-center gap-6 text-sm text-kingslake-300">
-            {['About', 'Features', 'Contact', 'Privacy'].map(l => (
-              <a key={l} href="#" className="hover:text-white transition-colors">{l}</a>
+            {[
+              { label: 'About', href: 'https://kingslakeblue.com/about/' },
+              { label: 'Features', href: 'https://kingslakeblue.com/line-balancing/features/' },
+              { label: 'Contact', href: 'https://kingslakeblue.com/contact/' },
+              { label: 'Privacy', href: 'https://kingslakeblue.com/privacy_policy/' },
+            ].map(({ label, href }) => (
+              <a key={label} href={href} className="hover:text-white transition-colors">{label}</a>
             ))}
           </div>
           <p className="text-sm text-kingslake-400">© 2026 KingslakeBlue. All rights reserved.</p>
